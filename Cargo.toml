@@ -1,0 +1,29 @@
+[package]
+name = "parquet-test"
+version = "0.1.0"
+authors = ["rdettai <rdettai@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "local"
+path = "src/main_df_local.rs"
+
+[[bin]]
+name = "s3"
+path = "src/main_df_s3.rs"
+
+[[bin]]
+name = "direct_s3"
+path = "src/main_direct_s3.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+arrow = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
+parquet = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
+datafusion = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
+tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
+rusoto_core = { version = "0.45.0" }
+rusoto_s3 = { version = "0.45.0" }
+async-trait = "0.1.41"
+futures = "0.3"
