@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{self, Read};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use parquet::file::reader::{ChunkReader, Length};
@@ -8,8 +9,8 @@ use rusoto_core::Region;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3Client, S3};
 use tokio::io::AsyncReadExt;
 
-pub fn new_client() -> Arc<S3Client> {
-  let region = Region::EuWest1;
+pub fn new_client(region: &str) -> Arc<S3Client> {
+  let region = Region::from_str(region).unwrap();
   Arc::new(S3Client::new(region))
 }
 
