@@ -14,13 +14,10 @@ ask-target:
 
 target/docker/lambda.zip: $(shell find src -type f) Cargo.toml docker/bee.dockerfile
 	mkdir -p ./target/docker
-	docker build -t bee-lambda-build -f docker/bee.dockerfile .
-	docker container create --name bee-lambda-build-temp bee-lambda-build
-	docker container cp bee-lambda-build-temp:/buzz-rust/lambda.zip ./target/docker
-	docker container rm bee-lambda-build-temp
+	DOCKER_BUILDKIT=1 docker build -f docker/bee.dockerfile --output ./target/docker .
 
 package-flight-server:
-	docker build -t flight-server-build -f docker/hive.dockerfile .
+	docker build -t cloudfuse/flight-server -f docker/hive.dockerfile .
 
 init:
 	@cd infra; terraform init

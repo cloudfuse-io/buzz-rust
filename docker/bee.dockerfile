@@ -1,6 +1,9 @@
 ARG BIN_NAME=lambda
 
-FROM rust:latest
+## BUILDER ##
+
+FROM rust:latest as builder
+ARG BIN_NAME
 
 # install environement
 
@@ -35,3 +38,9 @@ RUN cargo build --bin ${BIN_NAME} --release --target=x86_64-unknown-linux-musl
 
 RUN cp ./target/x86_64-unknown-linux-musl/release/${BIN_NAME} ./bootstrap
 RUN zip ${BIN_NAME}.zip bootstrap
+
+## EXPORT STAGE ##
+
+FROM scratch
+ARG BIN_NAME
+COPY --from=builder /buzz-rust/${BIN_NAME}.zip /
