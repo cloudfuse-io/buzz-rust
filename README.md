@@ -10,10 +10,9 @@ Buzz is composed of two systems:
 
 ## Build
 
-Until it is properly dockerized, builds targeting AWS Lambda require (as advised by the awslabs runtime):
-- `rustup target add x86_64-unknown-linux-musl`
-- `sudo apt install musl-tools`
-- `cargo build --bin lambda --release --target x86_64-unknown-linux-musl`
+Build commands can be found in the Makefile.
+
+The AWS Lambda runtime runs a custom version of linux. To keep ourselves out of trouble we *musl* instead of libc to make a static build. For reproducibility reasons, this build is done through docker.
 
 ## Deploy
 

@@ -18,12 +18,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn my_handler(event: Value, _: Context) -> Result<Value, HandlerError> {
   println!("Input Event: {:?}", event);
   let conf = bee_query::QueryConfig {
-    file_bucket: "bb-test-data-dev".to_owned(),
-    file_key: "bid-large.parquet".to_owned(),
-    file_length: 218890209,
     // file_bucket: "bb-test-data-dev".to_owned(),
-    // file_key: "bid-small.parquet".to_owned(),
-    // file_length: 2418624,
+    // file_key: "bid-large.parquet".to_owned(),
+    // file_length: 218890209,
+    file_bucket: "bb-test-data-dev".to_owned(),
+    file_key: "bid-small.parquet".to_owned(),
+    file_length: 2418624,
     ..Default::default()
   };
   let query = |df: Arc<dyn DataFrame>| {

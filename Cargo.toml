@@ -20,10 +20,19 @@ path = "src/main_direct_s3.rs"
 name = "lambda"
 path = "src/main_lambda.rs"
 
+[[bin]]
+name = "flight_client"
+path = "src/flight_client.rs"
+
+[[bin]]
+  name = "flight_server"
+  path = "src/flight_server.rs"
+
 [dependencies]
 arrow = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
 parquet = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
 datafusion = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
 rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }
@@ -32,3 +41,4 @@ futures = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.39"
 lambda_runtime = "0.2.1"
+tonic = "0.3"
