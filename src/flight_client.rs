@@ -80,8 +80,9 @@ mod flight_server;
 async fn call_do_put(
     results: Vec<RecordBatch>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Create Flight client
-    let mut client = FlightServiceClient::connect("http://localhost:50051").await?;
+    // Create Flight client after delay, to leave time for the server to boot
+    tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
+    let mut client = FlightServiceClient::connect("http://hive:50051").await?;
 
     // add an initial FlightData message that sends schema
     let schema = results[0].schema();

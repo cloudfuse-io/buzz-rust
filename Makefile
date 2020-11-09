@@ -14,10 +14,22 @@ ask-target:
 
 target/docker/lambda.zip: $(shell find src -type f) Cargo.toml docker/bee.dockerfile
 	mkdir -p ./target/docker
-	DOCKER_BUILDKIT=1 docker build -f docker/bee.dockerfile --output ./target/docker .
+	DOCKER_BUILDKIT=1 docker build \
+		-f docker/Dockerfile \
+		--target export-stage \
+		--output ./target/docker \
+		.
 
 package-flight-server:
-	docker build -t cloudfuse/flight-server -f docker/hive.dockerfile .
+	DOCKER_BUILDKIT=1 docker build \
+		-t cloudfuse/flight-server \
+		-f docker/Dockerfile \
+		--target export-stage \
+		.
+
+integ:
+	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml build
+	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml up
 
 init:
 	@cd infra; terraform init

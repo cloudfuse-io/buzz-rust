@@ -69,6 +69,9 @@ where
   }
 
   let physical_plan = ctx.create_physical_plan(&logical_plan).unwrap();
+  if debug {
+    println!("=> Physical plan:\n{:?}", physical_plan);
+  }
 
   let setup_duration = start.elapsed().as_millis();
   start = Instant::now();

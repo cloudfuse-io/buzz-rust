@@ -1,0 +1,28 @@
+version: '2.4'
+
+services:
+  hive:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+      target: runtime-stage
+      args: 
+        BIN_NAME: flight_server
+    ports:
+      - 50051
+
+  bee:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+      target: runtime-stage
+      args: 
+        BIN_NAME: flight_client
+    cpus: 2
+    volumes:
+      - ~/.aws:/root/.aws
+    mem_limit: 2048M
+    scale: 3
+    depends_on:
+      - hive
+
