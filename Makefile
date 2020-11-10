@@ -12,10 +12,11 @@ check-dirty:
 ask-target:
 	@echo "Lets deploy ${GIT_REVISION} in ${STAGE} with profile ${PROFILE}..."
 
-target/docker/lambda.zip: $(shell find src -type f) Cargo.toml docker/bee.dockerfile
+target/docker/lambda.zip: $(shell find src -type f) Cargo.toml docker/Dockerfile
 	mkdir -p ./target/docker
 	DOCKER_BUILDKIT=1 docker build \
 		-f docker/Dockerfile \
+		--build-arg BIN_NAME=lambda \
 		--target export-stage \
 		--output ./target/docker \
 		.

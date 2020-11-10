@@ -1,24 +1,7 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::Stream;
-use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
 use datafusion::datasource::parquet::ParquetTable;
@@ -26,13 +9,17 @@ use datafusion::datasource::TableProvider;
 use datafusion::prelude::*;
 
 use arrow_flight::{
-    flight_service_server::FlightService, flight_service_server::FlightServiceServer,
-    Action, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
-    HandshakeRequest, HandshakeResponse, PutResult, SchemaResult, Ticket,
+    flight_service_server::FlightService, Action, ActionType, Criteria, Empty,
+    FlightData, FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse,
+    PutResult, SchemaResult, Ticket,
 };
 
+use crate::hive_query::IntermediateResults;
+
 #[derive(Clone)]
-pub struct FlightServiceImpl {}
+pub struct FlightServiceImpl {
+    pub result_service: Arc<IntermediateResults>,
+}
 
 #[tonic::async_trait]
 impl FlightService for FlightServiceImpl {
@@ -188,21 +175,4 @@ impl FlightService for FlightServiceImpl {
 
 fn to_tonic_err(e: &datafusion::error::DataFusionError) -> Status {
     Status::internal(format!("{:?}", e))
-}
-
-/// This example shows how to wrap DataFusion with `FlightService` to support looking up schema information for
-/// Parquet files and executing SQL queries against them on a remote server.
-/// This example is run along-side the example `flight_client`.
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "0.0.0.0:50051".parse()?;
-    let service = FlightServiceImpl {};
-
-    let svc = FlightServiceServer::new(service);
-
-    println!("Listening on {:?}", addr);
-
-    Server::builder().add_service(svc).serve(addr).await?;
-
-    Ok(())
 }

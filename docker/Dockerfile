@@ -1,10 +1,13 @@
+# syntax=docker/dockerfile:experimental
+
 # This docker file contains different build targets of the application
 # Each target is represented by a stage
 
-## PREBUILD STAGE ##
-# Download and build dependencies (with musl to allow static build).
+## BUILD STAGE ##
+# Create a static binary (with musl) for one of the binary targets.
 
-FROM rust:latest as prebuild-stage
+FROM rust:latest as build-stage
+ARG BIN_NAME
 
 # install environment
 
@@ -13,38 +16,26 @@ RUN apt-get install musl-tools zip -y
 
 WORKDIR /buildspace
 
-COPY Cargo.lock Cargo.toml rust-toolchain ./
+COPY rust-toolchain .
 
-RUN rustup target add x86_64-unknown-linux-musl
-RUN rustup component add rustfmt
-
-# building dependencies
-
-RUN mkdir src/
-RUN echo "fn main() {println!(\"if you see this, the build broke\")}" > src/prebuild.rs
-RUN echo "[[bin]]\n"\
-  "name = \"prebuild\"\n"\
-  "path = \"src/prebuild.rs\"\n"\
-  >> Cargo.toml
-
-RUN cargo build --bin prebuild --release --target=x86_64-unknown-linux-musl
-
-## BUILD STAGE ##
-# Create a static binary (with musl) for one of the binary targets.
-
-FROM prebuild-stage as build-stage
-ARG BIN_NAME
+RUN rustup target add x86_64-unknown-linux-musl && rustup component add rustfmt 
 
 COPY . .
 
-RUN cargo build --bin ${BIN_NAME} --release --target=x86_64-unknown-linux-musl
+# use BuildKit experimental cache mount to speed up builds
+RUN --mount=type=cache,target=./target \
+  --mount=type=cache,target=/usr/local/cargo/git \
+  --mount=type=cache,target=/usr/local/cargo/registry \
+  cargo build --bin ${BIN_NAME} --release --target=x86_64-unknown-linux-musl && \
+  cp ./target/x86_64-unknown-linux-musl/release/${BIN_NAME} ./exec-static
 
 ## LAMBDA PACKAGE STAGE ##
 # Create a zip archive to be deployed to AWS Lambda
 
 FROM build-stage as package-stage
 ARG BIN_NAME
-RUN cp /buildspace/target/x86_64-unknown-linux-musl/release/${BIN_NAME} ./bootstrap
+# the exec name inside a lambda archive should be `bootstrap`
+RUN cp ./exec-static ./bootstrap
 RUN zip ${BIN_NAME}.zip bootstrap
 
 ## RUNTIME STAGE ##
@@ -52,8 +43,7 @@ RUN zip ${BIN_NAME}.zip bootstrap
 
 FROM scratch as runtime-stage
 EXPOSE 50051
-ARG BIN_NAME
-COPY --from=build-stage /buildspace/target/x86_64-unknown-linux-musl/release/${BIN_NAME} /app
+COPY --from=build-stage /buildspace/exec-static /app
 COPY --from=build-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ENTRYPOINT ["./app"]

@@ -14,7 +14,7 @@ Build commands can be found in the Makefile.
 
 The AWS Lambda runtime runs a custom version of linux. To keep ourselves out of trouble we *musl* instead of libc to make a static build. For reproducibility reasons, this build is done through docker.
 
-Note: docker builds require BuildKit (included in docker 18.09+) and the Docker Engine API 1.40+.
+**Note: docker builds require BuildKit (included in docker 18.09+) and the Docker Engine API 1.40+ with experimental features activated.**
 
 ## Deploy
 

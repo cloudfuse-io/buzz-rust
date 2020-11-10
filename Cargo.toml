@@ -16,17 +16,26 @@ path = "src/main_df_s3.rs"
 name = "direct_s3"
 path = "src/main_direct_s3.rs"
 
+# flight tests
+
+[[bin]]
+name = "flight_client"
+path = "src/main_flight_client.rs"
+
+[[bin]]
+  name = "flight_server"
+  path = "src/main_flight_server.rs"
+
+# target binaries
+
 [[bin]]
 name = "lambda"
 path = "src/main_lambda.rs"
 
 [[bin]]
-name = "flight_client"
-path = "src/flight_client.rs"
+  name = "hive"
+  path = "src/main_hive.rs"
 
-[[bin]]
-  name = "flight_server"
-  path = "src/flight_server.rs"
 
 [dependencies]
 arrow = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
