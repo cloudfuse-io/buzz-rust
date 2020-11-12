@@ -1,5 +1,3 @@
-//! Execution plan for reading Parquet files
-
 use std::any::Any;
 use std::rc::Rc;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};

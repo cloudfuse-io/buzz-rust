@@ -1,5 +1,3 @@
-//! Execution plan for reading Parquet files
-
 use std::any::Any;
 use std::fmt;
 use std::pin::Pin;

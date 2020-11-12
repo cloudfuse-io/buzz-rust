@@ -4,11 +4,8 @@ use tonic::transport::Server;
 use arrow_flight::flight_service_server::FlightServiceServer;
 use datafusion::prelude::*;
 
-mod datasource;
-mod execution_plan;
-mod flight_service;
-mod hive_query;
-mod s3;
+use buzz::flight_service;
+use buzz::hive_query;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

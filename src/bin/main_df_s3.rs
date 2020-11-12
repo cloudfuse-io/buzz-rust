@@ -1,22 +1,9 @@
 use datafusion::prelude::*;
-use std::error::Error;
 use std::sync::Arc;
 
-use lambda_runtime::{error::HandlerError, lambda, Context};
-use serde_json::Value;
+use buzz::bee_query;
 
-mod bee_query;
-mod datasource;
-mod execution_plan;
-mod s3;
-
-fn main() -> Result<(), Box<dyn Error>> {
-    lambda!(my_handler);
-    Ok(())
-}
-
-fn my_handler(event: Value, _: Context) -> Result<Value, HandlerError> {
-    println!("Input Event: {:?}", event);
+fn main() {
     let conf = bee_query::QueryConfig {
         // file_bucket: "bb-test-data-dev".to_owned(),
         // file_key: "bid-large.parquet".to_owned(),
@@ -30,9 +17,8 @@ fn my_handler(event: Value, _: Context) -> Result<Value, HandlerError> {
         df.aggregate(vec![col("device")], vec![count(col("device"))])?
             .sort(vec![col("COUNT(device)").sort(false, false)])
     };
-    tokio::runtime::Runtime::new()
+    let result = tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(bee_query::run(conf, query))
-        .unwrap();
-    Ok(Value::String("Ok!".to_owned()))
+        .block_on(bee_query::run(conf, query));
+    println!("Result:{:?}", result);
 }

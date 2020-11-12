@@ -1,15 +1,12 @@
 use std::sync::Arc;
 
-use crate::s3::S3FileAsync;
+use buzz::s3::S3FileAsync;
 use parquet::file::reader::{FileReader, SerializedFileReader};
-use rusoto_core::Region;
-use rusoto_s3::S3Client;
 
-mod s3;
+use buzz::s3;
 
 async fn async_main() {
-    let region = Region::EuWest1;
-    let s3_client = Arc::new(S3Client::new(region));
+    let s3_client = Arc::new(s3::new_client("eu-west-1"));
     let file = S3FileAsync::new(
         "bb-test-data-dev".to_owned(),
         "bid-small.parquet".to_owned(),

@@ -1,5 +1,3 @@
-//! Parquet data source
-
 use std::sync::Arc;
 
 use arrow::datatypes::*;

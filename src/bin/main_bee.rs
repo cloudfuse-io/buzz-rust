@@ -9,10 +9,7 @@ use arrow_flight::flight_descriptor;
 use arrow_flight::flight_service_client::FlightServiceClient;
 use arrow_flight::{FlightData, FlightDescriptor};
 
-mod bee_query;
-mod datasource;
-mod execution_plan;
-mod s3;
+use buzz::bee_query;
 
 async fn call_do_put(
     results: Vec<RecordBatch>,
