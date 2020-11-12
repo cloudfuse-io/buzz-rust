@@ -63,11 +63,7 @@ async fn get_data() -> datafusion::error::Result<Vec<RecordBatch>> {
     };
     let query = |df: Arc<dyn DataFrame>| {
         df.aggregate(vec![col("device")], vec![count(col("device"))])?
-            .sort(vec![col("COUNT(device)").sort(false, false)])?
-            .select(vec![
-                col("device"),
-                col("COUNT(device)").alias("device_count"),
-            ])
+            .sort(vec![col("COUNT(device)").sort(false, false)])
     };
     bee_query::run(conf, query).await
 }

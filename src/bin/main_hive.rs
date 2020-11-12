@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use arrow::datatypes::{DataType, Field};
     let schema = Arc::new(Schema::new(vec![
         Field::new("device", DataType::Utf8, false),
-        Field::new("device_count", DataType::UInt64, true),
+        Field::new("COUNT(device)", DataType::UInt64, true),
     ]));
     let config = hive_query::QueryConfig {
         concurrency: 1,
@@ -43,10 +43,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let query = |df: Arc<dyn DataFrame>| {
         // Ok(df)
-        // df.select(vec![col("device"), col("device_count")])
-        // df.aggregate(vec![col("device")], vec![sum(col("device_count"))])
-        df.aggregate(vec![col("device")], vec![sum(col("device_count"))])?
-            .sort(vec![col("SUM(device_count)").sort(false, false)])
+        // df.select(vec![col("device"), col("COUNT(device)")])
+        // df.aggregate(vec![col("device")], vec![sum(col("COUNT(device)"))])
+        df.aggregate(vec![col("device")], vec![sum(col("COUNT(device)"))])?
+            .sort(vec![col("SUM(COUNT(device))").sort(false, false)])
     };
     hive_query::run(config, query).await.unwrap();
 

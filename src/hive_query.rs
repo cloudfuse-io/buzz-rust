@@ -6,11 +6,9 @@ use std::time::Instant;
 use tokio::stream::Stream;
 use tokio::sync::mpsc;
 
-// use crate::datasource::StreamTable;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
-use datafusion::datasource::memory::MemTable;
 use datafusion::error::Result;
 use datafusion::prelude::*;
 
@@ -100,16 +98,19 @@ where
         .with_batch_size(query_conf.batch_size);
 
     // TODO go back to stream table
+    use datafusion::datasource::memory::MemTable;
     use futures::StreamExt;
     let values = Box::pin(query_conf.stream).collect::<Vec<_>>().await;
     let stream_table = MemTable::new(Arc::clone(&query_conf.schema), vec![values])?;
-    // let stream_table = StreamTable::try_new(Box::pin(query_conf.stream), Arc::clone(&query_conf.schema))?;
+    // use crate::datasource::StreamTable;
+    // let stream_table = StreamTable::try_new(
+    //     Box::pin(query_conf.stream),
+    //     Arc::clone(&query_conf.schema),
+    // )?;
 
     let mut ctx = ExecutionContext::with_config(config);
 
     let df = query(ctx.read_table(Arc::new(stream_table))?)?;
-    // .aggregate(vec![col("device")], vec![count(col("device"))])?
-    // .sort(vec![col("COUNT(device)").sort(false, false)])?;
 
     let logical_plan = df.to_logical_plan();
     if debug {

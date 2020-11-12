@@ -56,8 +56,6 @@ where
     let mut ctx = ExecutionContext::with_config(config);
 
     let df = query(ctx.read_table(parquet_table.clone())?)?;
-    // .aggregate(vec![col("device")], vec![count(col("device"))])?
-    // .sort(vec![col("COUNT(device)").sort(false, false)])?;
 
     let logical_plan = df.to_logical_plan();
     if debug {
