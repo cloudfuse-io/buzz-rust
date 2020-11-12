@@ -2,9 +2,9 @@ use datafusion::prelude::*;
 use std::sync::Arc;
 
 mod bee_query;
+mod datasource;
 mod execution_plan;
 mod s3;
-mod table_provider;
 
 fn main() {
     let conf = bee_query::QueryConfig {

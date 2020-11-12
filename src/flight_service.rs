@@ -1,17 +1,19 @@
+use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::Stream;
 use tonic::{Request, Response, Status, Streaming};
 
+use arrow::datatypes::Schema;
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
 use datafusion::prelude::*;
 
 use arrow_flight::{
-    flight_service_server::FlightService, Action, ActionType, Criteria, Empty,
-    FlightData, FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse,
-    PutResult, SchemaResult, Ticket,
+    flight_service_server::FlightService, utils::flight_data_to_arrow_batch, Action,
+    ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
+    HandshakeRequest, HandshakeResponse, PutResult, SchemaResult, Ticket,
 };
 
 use crate::hive_query::IntermediateResults;
@@ -141,12 +143,21 @@ impl FlightService for FlightServiceImpl {
         mut request: Request<Streaming<FlightData>>,
     ) -> Result<Response<Self::DoPutStream>, Status> {
         println!("metadata: {:?}", request.metadata());
-        let content = request.get_mut().message().await?;
-        if let Some(flight_data) = content {
-            if let Some(flight_descriptor) = flight_data.flight_descriptor {
-                println!("flight_descriptor: {:?}", flight_descriptor);
-            }
+        let header_flight_data = request.get_mut().message().await?.unwrap();
+        let schema = Arc::new(Schema::try_from(&header_flight_data).unwrap());
+        println!("Received Schema: {:?}", schema);
+        if let Some(flight_descriptor) = header_flight_data.flight_descriptor {
+            println!("flight_descriptor: {:?}", flight_descriptor);
         }
+
+        while let Some(flight_data) = request.get_mut().message().await? {
+            let batch = flight_data_to_arrow_batch(&flight_data, Arc::clone(&schema))
+                .unwrap()
+                .unwrap();
+            // TODO get query id from flight descriptor
+            self.result_service.add_result("test0", batch);
+        }
+        self.result_service.task_finished("test0");
         let output = futures::stream::empty();
         Ok(Response::new(Box::pin(output) as Self::DoPutStream))
     }

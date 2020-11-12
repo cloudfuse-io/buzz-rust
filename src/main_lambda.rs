@@ -6,9 +6,9 @@ use lambda_runtime::{error::HandlerError, lambda, Context};
 use serde_json::Value;
 
 mod bee_query;
+mod datasource;
 mod execution_plan;
 mod s3;
-mod table_provider;
 
 fn main() -> Result<(), Box<dyn Error>> {
     lambda!(my_handler);

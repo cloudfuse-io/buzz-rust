@@ -8,6 +8,8 @@ services:
       target: runtime-stage
       args: 
         BIN_NAME: flight_server
+    environment: 
+      - RUST_BACKTRACE=1
     ports:
       - 50051
 
@@ -19,9 +21,9 @@ services:
       args: 
         BIN_NAME: flight_client
     cpus: 2
-    volumes:
-      - ~/.aws:/root/.aws
     mem_limit: 2048M
+    environment: 
+      - RUST_BACKTRACE=1
     scale: 3
     depends_on:
       - hive

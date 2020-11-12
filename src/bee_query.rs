@@ -1,7 +1,8 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::table_provider::ParquetTable;
+use crate::datasource::ParquetTable;
+use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::prelude::*;
@@ -30,7 +31,7 @@ impl Default for QueryConfig {
     }
 }
 
-pub async fn run<F>(query_conf: QueryConfig, query: F) -> Result<()>
+pub async fn run<F>(query_conf: QueryConfig, query: F) -> Result<Vec<RecordBatch>>
 where
     F: Fn(Arc<dyn DataFrame>) -> Result<Arc<dyn DataFrame>>,
 {
@@ -70,7 +71,8 @@ where
 
     let physical_plan = ctx.create_physical_plan(&logical_plan).unwrap();
     if debug {
-        println!("=> Physical plan:\n{:?}", physical_plan);
+        // println!("=> Physical plan:\n{:?}", physical_plan);
+        println!("=> Schema:\n{:?}", physical_plan.schema());
     }
 
     let setup_duration = start.elapsed().as_millis();
@@ -89,5 +91,5 @@ where
         println!("Download took {} ms", dl_duration);
         println!("Processing took {} ms", start.elapsed().as_millis());
     }
-    Ok(())
+    Ok(result)
 }

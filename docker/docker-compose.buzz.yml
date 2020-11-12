@@ -1,0 +1,35 @@
+version: '2.4'
+
+services:
+  hive:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+      target: runtime-stage
+      args: 
+        BIN_NAME: hive
+    environment: 
+      - RUST_BACKTRACE=1
+    ports:
+      - 50051
+
+  bee:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+      target: runtime-stage
+      args: 
+        BIN_NAME: bee
+    cpus: 2
+    volumes:
+      - ~/.aws/credentials:/.aws/credentials
+    environment: 
+      - AWS_SHARED_CREDENTIALS_FILE=/.aws/credentials
+      - AWS_PROFILE
+      - RUST_BACKTRACE=1
+    mem_limit: 2048M
+    scale: 2
+    depends_on:
+      - hive
+    
+

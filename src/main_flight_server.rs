@@ -4,12 +4,12 @@ use tonic::transport::Server;
 
 use arrow_flight::flight_service_server::FlightServiceServer;
 
+mod datasource;
+mod execution_plan;
 mod flight_service;
 mod hive_query;
+mod s3;
 
-/// This example shows how to wrap DataFusion with `FlightService` to support looking up schema information for
-/// Parquet files and executing SQL queries against them on a remote server.
-/// This example is run along-side the example `flight_client`.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50051".parse()?;
