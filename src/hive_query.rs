@@ -57,7 +57,9 @@ impl IntermediateResults {
             Some(res) => {
                 res.tx.as_ref().unwrap().send(data).unwrap();
             }
-            None => println!("Query {} not created", query_id),
+            None => {
+                println!("Query '{}' not registered in IntermediateResults", query_id)
+            }
         }
     }
 

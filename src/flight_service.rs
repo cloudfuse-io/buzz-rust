@@ -8,12 +8,12 @@ use tonic::{Request, Response, Status, Streaming};
 use arrow::datatypes::Schema;
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
-use datafusion::prelude::*;
 
 use arrow_flight::{
-    flight_service_server::FlightService, utils::flight_data_to_arrow_batch, Action,
-    ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
-    HandshakeRequest, HandshakeResponse, PutResult, SchemaResult, Ticket,
+    flight_descriptor, flight_service_server::FlightService,
+    utils::flight_data_to_arrow_batch, Action, ActionType, Criteria, Empty, FlightData,
+    FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult,
+    SchemaResult, Ticket,
 };
 
 use crate::hive_query::IntermediateResults;
@@ -60,61 +60,9 @@ impl FlightService for FlightServiceImpl {
 
     async fn do_get(
         &self,
-        request: Request<Ticket>,
+        _request: Request<Ticket>,
     ) -> Result<Response<Self::DoGetStream>, Status> {
-        let ticket = request.into_inner();
-        match String::from_utf8(ticket.ticket.to_vec()) {
-            Ok(sql) => {
-                println!("do_get: {}", sql);
-
-                // create local execution context
-                let mut ctx = ExecutionContext::new();
-
-                let testdata = std::env::var("PARQUET_TEST_DATA")
-                    .expect("PARQUET_TEST_DATA not defined");
-
-                // register parquet file with the execution context
-                ctx.register_parquet(
-                    "alltypes_plain",
-                    &format!("{}/alltypes_plain.parquet", testdata),
-                )
-                .map_err(|e| to_tonic_err(&e))?;
-
-                // create the query plan
-                let plan = ctx
-                    .create_logical_plan(&sql)
-                    .and_then(|plan| ctx.optimize(&plan))
-                    .and_then(|plan| ctx.create_physical_plan(&plan))
-                    .map_err(|e| to_tonic_err(&e))?;
-
-                // execute the query
-                let results = ctx
-                    .collect(plan.clone())
-                    .await
-                    .map_err(|e| to_tonic_err(&e))?;
-                if results.is_empty() {
-                    return Err(Status::internal("There were no results from ticket"));
-                }
-
-                // add an initial FlightData message that sends schema
-                let schema = plan.schema();
-                let mut flights: Vec<Result<FlightData, Status>> =
-                    vec![Ok(FlightData::from(schema.as_ref()))];
-
-                let mut batches: Vec<Result<FlightData, Status>> = results
-                    .iter()
-                    .map(|batch| Ok(FlightData::from(batch)))
-                    .collect();
-
-                // append batch vector to schema vector, so that the first message sent is the schema
-                flights.append(&mut batches);
-
-                let output = futures::stream::iter(flights);
-
-                Ok(Response::new(Box::pin(output) as Self::DoGetStream))
-            }
-            Err(e) => Err(Status::invalid_argument(format!("Invalid ticket: {:?}", e))),
-        }
+        Err(Status::unimplemented("Not yet implemented"))
     }
 
     async fn handshake(
@@ -142,22 +90,33 @@ impl FlightService for FlightServiceImpl {
         &self,
         mut request: Request<Streaming<FlightData>>,
     ) -> Result<Response<Self::DoPutStream>, Status> {
-        // println!("metadata: {:?}", request.metadata());
+        // the first batch is metadata
         let header_flight_data = request.get_mut().message().await?.unwrap();
+
+        // parse the schema
         let schema = Arc::new(Schema::try_from(&header_flight_data).unwrap());
         println!("Received Schema: {:?}", schema);
-        // if let Some(flight_descriptor) = header_flight_data.flight_descriptor {
-        //     println!("flight_descriptor: {:?}", flight_descriptor);
-        // }
+
+        // unwrap query id
+        let mut query_id = String::new();
+        if let Some(desc) = header_flight_data.flight_descriptor {
+            if desc.r#type == flight_descriptor::DescriptorType::Cmd as i32 {
+                query_id = String::from_utf8(desc.cmd).unwrap_or(String::new());
+            }
+        }
+        if query_id.is_empty() {
+            return Err(Status::invalid_argument(
+                "FlightDescriptor should containe a Cmd with the ut8 encoding of the query_id",
+            ));
+        }
 
         while let Some(flight_data) = request.get_mut().message().await? {
             let batch = flight_data_to_arrow_batch(&flight_data, Arc::clone(&schema))
                 .unwrap()
                 .unwrap();
-            // TODO get query id from flight descriptor
-            self.result_service.add_result("test0", batch);
+            self.result_service.add_result(&query_id, batch);
         }
-        self.result_service.task_finished("test0");
+        self.result_service.task_finished(&query_id);
         let output = futures::stream::empty();
         Ok(Response::new(Box::pin(output) as Self::DoPutStream))
     }
@@ -184,6 +143,6 @@ impl FlightService for FlightServiceImpl {
     }
 }
 
-fn to_tonic_err(e: &datafusion::error::DataFusionError) -> Status {
-    Status::internal(format!("{:?}", e))
-}
+// fn to_tonic_err(e: &datafusion::error::DataFusionError) -> Status {
+//     Status::internal(format!("{:?}", e))
+// }

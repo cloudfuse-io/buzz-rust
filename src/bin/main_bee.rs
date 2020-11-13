@@ -23,7 +23,7 @@ async fn call_do_put(
     let mut flight_schema = FlightData::from(schema.as_ref());
     flight_schema.flight_descriptor = Some(FlightDescriptor {
         r#type: flight_descriptor::DescriptorType::Cmd as i32,
-        cmd: "hello".as_bytes().to_owned(),
+        cmd: "test0".as_bytes().to_owned(),
         path: vec![],
     });
     let mut flights: Vec<FlightData> = vec![flight_schema];
