@@ -142,13 +142,13 @@ impl FlightService for FlightServiceImpl {
         &self,
         mut request: Request<Streaming<FlightData>>,
     ) -> Result<Response<Self::DoPutStream>, Status> {
-        println!("metadata: {:?}", request.metadata());
+        // println!("metadata: {:?}", request.metadata());
         let header_flight_data = request.get_mut().message().await?.unwrap();
         let schema = Arc::new(Schema::try_from(&header_flight_data).unwrap());
         println!("Received Schema: {:?}", schema);
-        if let Some(flight_descriptor) = header_flight_data.flight_descriptor {
-            println!("flight_descriptor: {:?}", flight_descriptor);
-        }
+        // if let Some(flight_descriptor) = header_flight_data.flight_descriptor {
+        //     println!("flight_descriptor: {:?}", flight_descriptor);
+        // }
 
         while let Some(flight_data) = request.get_mut().message().await? {
             let batch = flight_data_to_arrow_batch(&flight_data, Arc::clone(&schema))

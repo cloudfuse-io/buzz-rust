@@ -45,10 +45,10 @@ path = "src/bin/main_lambda.rs"
 
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
-parquet = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
-datafusion = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev = "e7ce8cfda3a612cd54fa47d06e26ca07b83a7cd6" }
+arrow = { git = "https://github.com/alamb/arrow", rev = "a552108", feature=["prettyprint"] }
+parquet = { git = "https://github.com/alamb/arrow", rev = "a552108" }
+datafusion = { git = "https://github.com/alamb/arrow", rev = "a552108" }
+arrow-flight = { git = "https://github.com/alamb/arrow", rev = "a552108" }
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
 rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }

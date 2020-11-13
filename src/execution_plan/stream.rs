@@ -64,7 +64,6 @@ impl StreamExec {
 
 #[async_trait]
 impl ExecutionPlan for StreamExec {
-    /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -78,7 +77,6 @@ impl ExecutionPlan for StreamExec {
         vec![]
     }
 
-    /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         Partitioning::UnknownPartitioning(1)
     }
@@ -94,10 +92,7 @@ impl ExecutionPlan for StreamExec {
     }
 
     async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
-        // because the parquet implementation is not thread-safe, it is necessary to execute
-        // on a thread and communicate with channels
         match self.stream.lock().unwrap().take() {
-            // hello
             Some(stream) => Ok(Box::pin(StreamStream {
                 schema: self.schema.clone(),
                 stream,
@@ -126,6 +121,10 @@ impl<St: Stream<Item = RecordBatch>> Stream for StreamStream<St> {
         let mut this = self.project();
         let inner_res = this.stream.as_mut().poll_next(ctx);
         inner_res.map(|opt| opt.map(|item| Ok(item)))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.stream.size_hint()
     }
 }
 

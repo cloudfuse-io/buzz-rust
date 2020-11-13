@@ -73,7 +73,9 @@ impl IntermediateResults {
                     res.tx = None;
                 }
             }
-            None => println!("Query {} not created", query_id),
+            None => {
+                println!("Query '{}' not registered in IntermediateResults", query_id)
+            }
         }
     }
 }
@@ -97,16 +99,11 @@ where
         .with_concurrency(query_conf.concurrency)
         .with_batch_size(query_conf.batch_size);
 
-    // TODO go back to stream table
-    use datafusion::datasource::memory::MemTable;
-    use futures::StreamExt;
-    let values = Box::pin(query_conf.stream).collect::<Vec<_>>().await;
-    let stream_table = MemTable::new(Arc::clone(&query_conf.schema), vec![values])?;
-    // use crate::datasource::StreamTable;
-    // let stream_table = StreamTable::try_new(
-    //     Box::pin(query_conf.stream),
-    //     Arc::clone(&query_conf.schema),
-    // )?;
+    use crate::datasource::StreamTable;
+    let stream_table = StreamTable::try_new(
+        Box::pin(query_conf.stream),
+        Arc::clone(&query_conf.schema),
+    )?;
 
     let mut ctx = ExecutionContext::with_config(config);
 
