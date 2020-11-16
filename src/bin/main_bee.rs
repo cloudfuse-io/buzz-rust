@@ -53,17 +53,16 @@ async fn call_do_put(
 
 async fn get_data() -> datafusion::error::Result<Vec<RecordBatch>> {
     let conf = bee_query::QueryConfig {
-        // file_bucket: "bb-test-data-dev".to_owned(),
-        // file_key: "bid-large.parquet".to_owned(),
-        // file_length: 218890209,
-        file_bucket: "bb-test-data-dev".to_owned(),
-        file_key: "bid-small.parquet".to_owned(),
-        file_length: 2418624,
+        file_bucket: "cloudfuse-taxi-data".to_owned(),
+        file_key: "raw_small/2009/01/data.parquet".to_owned(),
+        file_length: 27301328,
+        // file_key: "raw_5M/2009/01/data.parquet".to_owned(),
+        // file_length: 388070114,
         ..Default::default()
     };
     let query = |df: Arc<dyn DataFrame>| {
-        df.aggregate(vec![col("device")], vec![count(col("device"))])?
-            .sort(vec![col("COUNT(device)").sort(false, false)])
+        df.aggregate(vec![col("payment_type")], vec![count(col("payment_type"))])?
+            .sort(vec![col("COUNT(payment_type)").sort(false, false)])
     };
     bee_query::run(conf, query).await
 }

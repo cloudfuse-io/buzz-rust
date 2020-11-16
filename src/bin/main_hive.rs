@@ -32,8 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use arrow::datatypes::Schema;
     use arrow::datatypes::{DataType, Field};
     let schema = Arc::new(Schema::new(vec![
-        Field::new("device", DataType::Utf8, false),
-        Field::new("COUNT(device)", DataType::UInt64, true),
+        Field::new("payment_type", DataType::Utf8, false),
+        Field::new("COUNT(payment_type)", DataType::UInt64, true),
     ]));
     let config = hive_query::QueryConfig {
         concurrency: 1,
@@ -43,10 +43,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let query = |df: Arc<dyn DataFrame>| {
         // Ok(df)
-        // df.select(vec![col("device"), col("COUNT(device)")])
-        // df.aggregate(vec![col("device")], vec![sum(col("COUNT(device)"))])
-        df.aggregate(vec![col("device")], vec![sum(col("COUNT(device)"))])?
-            .sort(vec![col("SUM(COUNT(device))").sort(false, false)])
+        // df.select(vec![col("payment_type"), col("COUNT(payment_type)")])
+        // df.aggregate(vec![col("payment_type")], vec![sum(col("COUNT(payment_type)"))])
+        df.aggregate(
+            vec![col("payment_type")],
+            vec![sum(col("COUNT(payment_type)"))],
+        )?
+        .sort(vec![col("SUM(COUNT(payment_type))").sort(false, false)])
     };
     hive_query::run(config, query).await.unwrap();
 

@@ -8,13 +8,11 @@ use buzz::s3;
 async fn async_main() {
     let s3_client = Arc::new(s3::new_client("eu-west-1"));
     let file = S3FileAsync::new(
-        "bb-test-data-dev".to_owned(),
-        "bid-small.parquet".to_owned(),
-        2418624,
-        // "bid-large.parquet".to_owned(),
-        // 218890209,
-        // "yellow_tripdata_2009-01.parquet".to_owned(),
-        // 0,
+        "cloudfuse-taxi-data".to_owned(),
+        // "raw_small/2009/01/data.parquet".to_owned(),
+        // 27301328,
+        "raw_5M/2009/01/data.parquet".to_owned(),
+        388070114,
         Arc::clone(&s3_client),
     );
 

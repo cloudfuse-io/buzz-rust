@@ -64,6 +64,7 @@ impl S3FileAsync {
     let queue = self.dl_queue.lock().unwrap().drain(..).collect::<Vec<_>>();
     for range in queue {
       self.get_range(range.0 as u64, range.1 as usize).await;
+      println!("downloaded from {} len {}", range.0, range.1);
     }
   }
 
@@ -126,7 +127,9 @@ impl ChunkReader for S3FileAsync {
   fn get_read(&self, start: u64, length: usize) -> parquet::errors::Result<Self::T> {
     // println!("Get:  [{}-{}[", start, start + length as u64);
     let data_guard = self.data.lock().unwrap();
-    let data = data_guard.get(&start).unwrap();
+    let data = data_guard
+      .get(&start)
+      .expect(&format!("Chunk not found at offset {}", start));
     Ok(S3Read {
       data: Arc::clone(data),
       position: 0,

@@ -66,7 +66,7 @@ checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 [[package]]
 name = "arrow"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/alamb/arrow?rev=a552108#a552108176ab7299a9e51796ce1d58483b6a4a6e"
+source = "git+https://github.com/apache/arrow?rev=e2f1e01#e2f1e0107c555a544b43b0721cb7f4ded4f074a3"
 dependencies = [
  "chrono",
  "csv",
@@ -86,7 +86,7 @@ dependencies = [
 [[package]]
 name = "arrow-flight"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/alamb/arrow?rev=a552108#a552108176ab7299a9e51796ce1d58483b6a4a6e"
+source = "git+https://github.com/apache/arrow?rev=e2f1e01#e2f1e0107c555a544b43b0721cb7f4ded4f074a3"
 dependencies = [
  "arrow",
  "bytes 0.5.6",
@@ -531,7 +531,7 @@ dependencies = [
 [[package]]
 name = "datafusion"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/alamb/arrow?rev=a552108#a552108176ab7299a9e51796ce1d58483b6a4a6e"
+source = "git+https://github.com/apache/arrow?rev=e2f1e01#e2f1e0107c555a544b43b0721cb7f4ded4f074a3"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1522,7 +1522,7 @@ dependencies = [
 [[package]]
 name = "parquet"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/alamb/arrow?rev=a552108#a552108176ab7299a9e51796ce1d58483b6a4a6e"
+source = "git+https://github.com/apache/arrow?rev=e2f1e01#e2f1e0107c555a544b43b0721cb7f4ded4f074a3"
 dependencies = [
  "arrow",
  "base64 0.11.0",

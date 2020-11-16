@@ -8,10 +8,6 @@ edition = "2018"
 name = "buzz"
 
 [[bin]]
-name = "local"
-path = "src/bin/main_df_local.rs"
-
-[[bin]]
 name = "s3"
 path = "src/bin/main_df_s3.rs"
 
@@ -45,10 +41,10 @@ path = "src/bin/main_lambda.rs"
 
 
 [dependencies]
-arrow = { git = "https://github.com/alamb/arrow", rev = "a552108", feature=["prettyprint"] }
-parquet = { git = "https://github.com/alamb/arrow", rev = "a552108" }
-datafusion = { git = "https://github.com/alamb/arrow", rev = "a552108" }
-arrow-flight = { git = "https://github.com/alamb/arrow", rev = "a552108" }
+arrow = { git = "https://github.com/apache/arrow", rev = "e2f1e01", feature=["prettyprint"] }
+parquet = { git = "https://github.com/apache/arrow", rev = "e2f1e01" }
+datafusion = { git = "https://github.com/apache/arrow", rev = "e2f1e01" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev = "e2f1e01" }
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
 rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }

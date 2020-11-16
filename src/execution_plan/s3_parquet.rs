@@ -67,7 +67,13 @@ impl ParquetExec {
             for proj in &projection {
                 let rg_metadata = metadata.row_group(i);
                 let col_metadata = rg_metadata.column(*proj);
-                ranges.push((col_metadata.file_offset(), col_metadata.compressed_size()));
+                // TODO -> refactor this to mutualize code
+                let col_start = if col_metadata.has_dictionary_page() {
+                    col_metadata.dictionary_page_offset().unwrap()
+                } else {
+                    col_metadata.data_page_offset()
+                };
+                ranges.push((col_start, col_metadata.compressed_size()));
             }
         }
         file.set_dl_queue(ranges);
