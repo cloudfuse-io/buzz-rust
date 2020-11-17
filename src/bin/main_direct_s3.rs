@@ -16,7 +16,7 @@ async fn async_main() {
         Arc::clone(&s3_client),
     );
 
-    file.download_footer().await;
+    file.download_footer();
 
     let reader =
         SerializedFileReader::new(file).expect("Failed to create serialized reader");

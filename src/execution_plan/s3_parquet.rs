@@ -44,7 +44,7 @@ fn path_to_reader(file: S3FileAsync) -> ParquetFileArrowReader {
 impl ParquetExec {
     /// Create a new Parquet reader execution plan
     pub fn try_new(
-        mut file: S3FileAsync,
+        file: S3FileAsync,
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
@@ -60,17 +60,16 @@ impl ParquetExec {
             None => (0..schema.fields().len()).collect(),
         };
 
-        // list used byte ranges
-        let mut ranges = vec![];
+        // prefetch usefull byte ranges
         let metadata = file_reader.metadata();
         for i in 0..metadata.num_row_groups() {
             for proj in &projection {
                 let rg_metadata = metadata.row_group(i);
                 let col_metadata = rg_metadata.column(*proj);
-                ranges.push(col_metadata.byte_range());
+                let (start, length) = col_metadata.byte_range();
+                file.prefetch(start, length as usize);
             }
         }
-        file.set_dl_queue(ranges);
 
         let projected_schema = Schema::new(
             projection

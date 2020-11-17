@@ -49,7 +49,7 @@ where
         s3::new_client(&query_conf.region),
     );
 
-    file.download_footer().await;
+    file.download_footer();
 
     let parquet_table = Arc::new(ParquetTable::try_new(file.clone())?);
 
@@ -76,17 +76,11 @@ where
     let setup_duration = start.elapsed().as_millis();
     start = Instant::now();
 
-    file.download_columns().await;
-
-    let dl_duration = start.elapsed().as_millis();
-    start = Instant::now();
-
     let result = ctx.collect(physical_plan).await?;
 
     if debug {
         pretty::print_batches(&result)?;
         println!("Setup took {} ms", setup_duration);
-        println!("Download took {} ms", dl_duration);
         println!("Processing took {} ms", start.elapsed().as_millis());
     }
     Ok(result)

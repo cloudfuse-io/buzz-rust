@@ -16,10 +16,10 @@ fn my_handler(event: Value, _: Context) -> Result<Value, HandlerError> {
     println!("Input Event: {:?}", event);
     let conf = bee_query::QueryConfig {
         file_bucket: "cloudfuse-taxi-data".to_owned(),
-        file_key: "raw_small/2009/01/data.parquet".to_owned(),
-        file_length: 27301328,
-        // file_key: "raw_5M/2009/01/data.parquet".to_owned(),
-        // file_length: 388070114,
+        // file_key: "raw_small/2009/01/data.parquet".to_owned(),
+        // file_length: 27301328,
+        file_key: "raw_5M/2009/01/data.parquet".to_owned(),
+        file_length: 388070114,
         ..Default::default()
     };
     let query = |df: Arc<dyn DataFrame>| {

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::fmt;
-use std::io::{self, Read};
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use crate::range_cache::{CachedRead, Downloader, RangeCache};
+use async_trait::async_trait;
 use parquet::file::reader::{ChunkReader, Length};
 use rusoto_core::Region;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3Client, S3};
@@ -20,8 +20,7 @@ pub struct S3FileAsync {
   key: String,
   client: Arc<S3Client>,
   length: u64,
-  data: Arc<Mutex<HashMap<u64, Arc<Vec<u8>>>>>,
-  dl_queue: Arc<Mutex<Vec<(u64, u64)>>>,
+  data: Arc<RangeCache>,
 }
 
 impl fmt::Debug for S3FileAsync {
@@ -34,41 +33,15 @@ impl fmt::Debug for S3FileAsync {
   }
 }
 
-impl S3FileAsync {
-  pub fn new(bucket: String, key: String, length: u64, client: Arc<S3Client>) -> Self {
-    S3FileAsync {
-      bucket,
-      key,
-      length,
-      client,
-      data: Arc::new(Mutex::new(HashMap::new())),
-      dl_queue: Arc::new(Mutex::new(vec![])),
-    }
-  }
+struct S3Downloader {
+  bucket: String,
+  key: String,
+  client: Arc<S3Client>,
+}
 
-  pub async fn download_footer(&self) {
-    // TODO better way to read end of file (1MB)
-    let end_length = 64 * 1024;
-    let (end_start, end_length) = match self.length.checked_sub(end_length) {
-      Some(val) => (val, end_length),
-      None => (0, self.length),
-    };
-    self.get_range(end_start, end_length as usize).await;
-  }
-
-  pub fn set_dl_queue(&mut self, projection: Vec<(u64, u64)>) {
-    *self.dl_queue.lock().unwrap() = projection;
-  }
-
-  pub async fn download_columns(&self) {
-    let queue = self.dl_queue.lock().unwrap().drain(..).collect::<Vec<_>>();
-    for range in queue {
-      self.get_range(range.0 as u64, range.1 as usize).await;
-      println!("downloaded from {} len {}", range.0, range.1);
-    }
-  }
-
-  async fn get_range(&self, start: u64, length: usize) {
+#[async_trait]
+impl Downloader for S3Downloader {
+  async fn download(&self, start: u64, length: usize) -> Vec<u8> {
     let range = format!("bytes={}-{}", start, start + length as u64 - 1);
     let get_obj_req = GetObjectRequest {
       bucket: self.bucket.clone(),
@@ -88,30 +61,38 @@ impl S3FileAsync {
     if bytes_read != length {
       panic!("Not the expected number of bytes");
     }
-    // println!("Insert: [{}-{}[", start, start + length as u64);
-    self.data.lock().unwrap().insert(start, Arc::new(res));
+    res
   }
 }
 
-pub struct S3Read {
-  data: Arc<Vec<u8>>,
-  position: u64,
-  remaining: u64,
-}
+impl S3FileAsync {
+  pub fn new(bucket: String, key: String, length: u64, client: Arc<S3Client>) -> Self {
+    let downloader = S3Downloader {
+      bucket: bucket.clone(),
+      key: key.clone(),
+      client: Arc::clone(&client),
+    };
+    S3FileAsync {
+      bucket,
+      key,
+      length,
+      client,
+      data: Arc::new(RangeCache::new(downloader)),
+    }
+  }
 
-impl Read for S3Read {
-  fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-    // compute len to read
-    let len = std::cmp::min(buf.len(), self.remaining as usize);
-    // get downloaded data
-    buf[0..len].clone_from_slice(
-      &self.data[self.position as usize..(self.position as usize + len)],
-    );
+  pub fn prefetch(&self, start: u64, length: usize) {
+    self.data.schedule(start, length);
+  }
 
-    // update reader position
-    self.remaining -= len as u64;
-    self.position += len as u64;
-    Ok(len)
+  // TODO the cache should download instead of return an error, this way we could avoid to specify this footer delete
+  pub fn download_footer(&self) {
+    let end_length = 1024 * 1024;
+    let (end_start, end_length) = match self.length.checked_sub(end_length) {
+      Some(val) => (val, end_length),
+      None => (0, self.length),
+    };
+    self.prefetch(end_start, end_length as usize);
   }
 }
 
@@ -122,18 +103,9 @@ impl Length for S3FileAsync {
 }
 
 impl ChunkReader for S3FileAsync {
-  type T = S3Read;
+  type T = CachedRead;
 
   fn get_read(&self, start: u64, length: usize) -> parquet::errors::Result<Self::T> {
-    // println!("Get:  [{}-{}[", start, start + length as u64);
-    let data_guard = self.data.lock().unwrap();
-    let data = data_guard
-      .get(&start)
-      .expect(&format!("Chunk not found at offset {}", start));
-    Ok(S3Read {
-      data: Arc::clone(data),
-      position: 0,
-      remaining: length as u64,
-    })
+    Ok(self.data.get(start, length).unwrap())
   }
 }
