@@ -16,8 +16,8 @@ fn main() {
         df.aggregate(vec![col("payment_type")], vec![count(col("payment_type"))])?
             .sort(vec![col("COUNT(payment_type)").sort(false, false)])
     };
-    let result = tokio::runtime::Runtime::new()
+    tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(bee_query::run(conf, query));
-    println!("Result:{:?}", result);
+        .block_on(bee_query::run(conf, query))
+        .unwrap();
 }

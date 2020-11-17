@@ -21,7 +21,7 @@ pub struct S3FileAsync {
   client: Arc<S3Client>,
   length: u64,
   data: Arc<Mutex<HashMap<u64, Arc<Vec<u8>>>>>,
-  dl_queue: Arc<Mutex<Vec<(i64, i64)>>>,
+  dl_queue: Arc<Mutex<Vec<(u64, u64)>>>,
 }
 
 impl fmt::Debug for S3FileAsync {
@@ -56,7 +56,7 @@ impl S3FileAsync {
     self.get_range(end_start, end_length as usize).await;
   }
 
-  pub fn set_dl_queue(&mut self, projection: Vec<(i64, i64)>) {
+  pub fn set_dl_queue(&mut self, projection: Vec<(u64, u64)>) {
     *self.dl_queue.lock().unwrap() = projection;
   }
 

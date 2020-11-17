@@ -60,20 +60,14 @@ impl ParquetExec {
             None => (0..schema.fields().len()).collect(),
         };
 
-        // get projections
+        // list used byte ranges
         let mut ranges = vec![];
         let metadata = file_reader.metadata();
         for i in 0..metadata.num_row_groups() {
             for proj in &projection {
                 let rg_metadata = metadata.row_group(i);
                 let col_metadata = rg_metadata.column(*proj);
-                // TODO -> refactor this to mutualize code
-                let col_start = if col_metadata.has_dictionary_page() {
-                    col_metadata.dictionary_page_offset().unwrap()
-                } else {
-                    col_metadata.data_page_offset()
-                };
-                ranges.push((col_start, col_metadata.compressed_size()));
+                ranges.push(col_metadata.byte_range());
             }
         }
         file.set_dl_queue(ranges);
