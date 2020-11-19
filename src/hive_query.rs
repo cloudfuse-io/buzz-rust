@@ -17,16 +17,14 @@ struct IntermediateRes {
     remaining_tasks: usize,
 }
 
-pub struct IntermediateResults {
-    // rx: Mutex<HashMap<String, mpsc::Receiver<RecordBatch>>>,
-    tx_map: Arc<Mutex<HashMap<String, IntermediateRes>>>,
+pub struct ResultsService {
+    tx_map: Mutex<HashMap<String, IntermediateRes>>,
 }
 
-impl IntermediateResults {
+impl ResultsService {
     pub fn new() -> Self {
-        IntermediateResults {
-            // rx: Mutex::new(HashMap::new()),
-            tx_map: Arc::new(Mutex::new(HashMap::new())),
+        Self {
+            tx_map: Mutex::new(HashMap::new()),
         }
     }
 
@@ -37,8 +35,8 @@ impl IntermediateResults {
     ) -> impl Stream<Item = RecordBatch> {
         let (tx, rx) = mpsc::unbounded_channel();
         {
-            let mut sender_map = self.tx_map.lock().unwrap();
-            sender_map.insert(
+            let mut sender_map_guard = self.tx_map.lock().unwrap();
+            sender_map_guard.insert(
                 query_id,
                 IntermediateRes {
                     tx: Some(tx),
@@ -58,7 +56,7 @@ impl IntermediateResults {
                 res.tx.as_ref().unwrap().send(data).unwrap();
             }
             None => {
-                println!("Query '{}' not registered in IntermediateResults", query_id)
+                println!("Query '{}' not registered in IntermediateResults", query_id);
             }
         }
     }
@@ -76,7 +74,7 @@ impl IntermediateResults {
                 }
             }
             None => {
-                println!("Query '{}' not registered in IntermediateResults", query_id)
+                println!("Query '{}' not registered in IntermediateResults", query_id);
             }
         }
     }

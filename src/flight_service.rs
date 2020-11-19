@@ -2,12 +2,11 @@ use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::Stream;
-use tonic::{Request, Response, Status, Streaming};
-
 use arrow::datatypes::Schema;
-use datafusion::datasource::parquet::ParquetTable;
-use datafusion::datasource::TableProvider;
+use arrow_flight::flight_service_server::FlightServiceServer;
+use futures::Stream;
+use tonic::transport::Server;
+use tonic::{Request, Response, Status, Streaming};
 
 use arrow_flight::{
     flight_descriptor, flight_service_server::FlightService,
@@ -16,11 +15,30 @@ use arrow_flight::{
     SchemaResult, Ticket,
 };
 
-use crate::hive_query::IntermediateResults;
+use crate::hive_query::ResultsService;
 
 #[derive(Clone)]
 pub struct FlightServiceImpl {
-    pub result_service: Arc<IntermediateResults>,
+    result_service: Arc<ResultsService>,
+}
+
+impl FlightServiceImpl {
+    pub fn new(result_service: Arc<ResultsService>) -> Self {
+        Self { result_service }
+    }
+
+    pub async fn start(&self) -> tokio::task::JoinHandle<()> {
+        let addr = "0.0.0.0:50051".parse().unwrap();
+        let svc = FlightServiceServer::new(self.clone());
+        tokio::spawn(async move {
+            println!("Listening on {:?}", addr);
+            Server::builder()
+                .add_service(svc)
+                .serve(addr)
+                .await
+                .unwrap();
+        })
+    }
 }
 
 #[tonic::async_trait]
@@ -49,13 +67,9 @@ impl FlightService for FlightServiceImpl {
 
     async fn get_schema(
         &self,
-        request: Request<FlightDescriptor>,
+        _request: Request<FlightDescriptor>,
     ) -> Result<Response<SchemaResult>, Status> {
-        let request = request.into_inner();
-
-        let table = ParquetTable::try_new(&request.path[0]).unwrap();
-
-        Ok(Response::new(SchemaResult::from(table.schema().as_ref())))
+        Err(Status::unimplemented("Not yet implemented"))
     }
 
     async fn do_get(

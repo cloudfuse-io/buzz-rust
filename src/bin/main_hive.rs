@@ -1,31 +1,15 @@
 use std::sync::Arc;
-use tonic::transport::Server;
 
-use arrow_flight::flight_service_server::FlightServiceServer;
 use datafusion::prelude::*;
 
-use buzz::flight_service;
-use buzz::hive_query;
+use buzz::flight_service::FlightServiceImpl;
+use buzz::hive_query::{self, ResultsService};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let result_service = Arc::new(hive_query::IntermediateResults::new());
-
-    let addr = "0.0.0.0:50051".parse()?;
-    let service = flight_service::FlightServiceImpl {
-        result_service: Arc::clone(&result_service),
-    };
-
-    let svc = FlightServiceServer::new(service);
-
-    let server_handle = tokio::spawn(async move {
-        println!("Listening on {:?}", addr);
-        Server::builder()
-            .add_service(svc)
-            .serve(addr)
-            .await
-            .unwrap();
-    });
+    let result_service = Arc::new(ResultsService::new());
+    let flight_service = FlightServiceImpl::new(Arc::clone(&result_service));
+    let server_handle = flight_service.start().await;
 
     let res_stream = result_service.new_query("test0".to_owned(), 2);
 
