@@ -51,7 +51,7 @@ enum Download {
 }
 
 #[async_trait]
-pub trait Downloader: Send + Sync {
+pub trait Downloader: Send + Sync + Clone {
     async fn download(&self, start: u64, length: usize) -> Vec<u8>;
 }
 
@@ -72,14 +72,26 @@ impl RangeCache {
         let data_ref = Arc::clone(&cache.data);
         let cv_ref = Arc::clone(&cache.cv);
         tokio::spawn(async move {
+            let pool = Arc::new(tokio::sync::Semaphore::new(8));
             while let Some(message) = rx.recv().await {
-                // let downloader = Arc::clone(&downloader_arc);
-                let downloaded_chunk = downloader.download(message.0, message.1).await;
-                data_ref
-                    .lock()
-                    .unwrap()
-                    .insert(message.0, Download::Done(Arc::new(downloaded_chunk)));
-                cv_ref.notify_all();
+                // obtain a permit, it will be released in the spawned download task
+                let permit = pool.acquire().await;
+                permit.forget();
+                // run download in a dedicated task
+                let downloader = downloader.clone();
+                let data_ref = Arc::clone(&data_ref);
+                let cv_ref = Arc::clone(&cv_ref);
+                let pool_ref = Arc::clone(&pool);
+                tokio::spawn(async move {
+                    let downloaded_chunk =
+                        downloader.download(message.0, message.1).await;
+                    pool_ref.add_permits(1);
+                    data_ref
+                        .lock()
+                        .unwrap()
+                        .insert(message.0, Download::Done(Arc::new(downloaded_chunk)));
+                    cv_ref.notify_all();
+                });
             }
         });
         cache
@@ -92,18 +104,15 @@ impl RangeCache {
 
     /// For now the cache can only get get single chunck readers and fails if the dl was not scheduled
     pub fn get(&self, start: u64, length: usize) -> Result<CachedRead> {
+        use std::ops::Bound::{Included, Unbounded};
         let mut data_guard = self.data.lock().unwrap();
 
-        let mut before = data_guard
-            .range((std::ops::Bound::Unbounded, std::ops::Bound::Included(start)))
-            .next_back();
+        let mut before = data_guard.range((Unbounded, Included(start))).next_back();
 
         while let Some((_, Download::Pending)) = before {
             // wait for the dl to be finished
             data_guard = self.cv.wait(data_guard).unwrap();
-            before = data_guard
-                .range((std::ops::Bound::Unbounded, std::ops::Bound::Included(start)))
-                .next_back();
+            before = data_guard.range((Unbounded, Included(start))).next_back();
         }
 
         let before = before.context(DownloadNotScheduled { start, length })?;

@@ -9,30 +9,16 @@ use rusoto_core::Region;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3Client, S3};
 use tokio::io::AsyncReadExt;
 
+//// S3 Client ////
+
 pub fn new_client(region: &str) -> Arc<S3Client> {
   let region = Region::from_str(region).unwrap();
   Arc::new(S3Client::new(region))
 }
 
+//// Implementation of the `download` function used by the range cache to fetch data
+
 #[derive(Clone)]
-pub struct S3FileAsync {
-  bucket: String,
-  key: String,
-  client: Arc<S3Client>,
-  length: u64,
-  data: Arc<RangeCache>,
-}
-
-impl fmt::Debug for S3FileAsync {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct("S3FileAsync")
-      .field("bucket", &self.bucket)
-      .field("key", &self.key)
-      .field("length", &self.length)
-      .finish()
-  }
-}
-
 struct S3Downloader {
   bucket: String,
   key: String,
@@ -65,6 +51,26 @@ impl Downloader for S3Downloader {
   }
 }
 
+//// File implementation that uses
+
+#[derive(Clone)]
+pub struct S3FileAsync {
+  bucket: String,
+  key: String,
+  length: u64,
+  data: Arc<RangeCache>,
+}
+
+impl fmt::Debug for S3FileAsync {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("S3FileAsync")
+      .field("bucket", &self.bucket)
+      .field("key", &self.key)
+      .field("length", &self.length)
+      .finish()
+  }
+}
+
 impl S3FileAsync {
   pub fn new(bucket: String, key: String, length: u64, client: Arc<S3Client>) -> Self {
     let downloader = S3Downloader {
@@ -76,7 +82,6 @@ impl S3FileAsync {
       bucket,
       key,
       length,
-      client,
       data: Arc::new(RangeCache::new(downloader)),
     }
   }
