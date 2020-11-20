@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::dataframe_ops::DataframeOperations;
-use crate::datasource::ParquetTable;
+use crate::datasource::{EmptyTable, ParquetTable};
 use crate::s3;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
@@ -16,8 +16,19 @@ pub struct BeeQuery {
     pub file_bucket: String,
     pub file_key: String,
     pub file_length: u64,
-    pub schema: Arc<Schema>,
+    pub input_schema: Arc<Schema>,
     pub ops: Box<dyn DataframeOperations>,
+}
+
+impl BeeQuery {
+    /// The schema that will be returned by the bees after executing they part of the query
+    pub fn output_schema(&self) -> Result<Arc<Schema>> {
+        let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
+        let empty_table = EmptyTable::new(Arc::clone(&self.input_schema));
+        let df = self.ops.apply_to(ctx.read_table(Arc::new(empty_table))?)?;
+        let logical_plan = df.to_logical_plan();
+        Ok(Arc::clone(logical_plan.schema()))
+    }
 }
 
 pub struct BeeQueryRunner {
@@ -45,7 +56,7 @@ impl BeeQueryRunner {
             query.file_length,
             s3::new_client(&query.region),
         );
-        let parquet_table = Arc::new(ParquetTable::new(file.clone(), query.schema)?);
+        let parquet_table = Arc::new(ParquetTable::new(file.clone(), query.input_schema));
         let mut ctx = ExecutionContext::with_config(config);
         let df = query.ops.apply_to(ctx.read_table(parquet_table.clone())?)?;
         let logical_plan = df.to_logical_plan();

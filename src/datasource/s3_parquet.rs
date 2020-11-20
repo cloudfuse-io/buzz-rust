@@ -11,16 +11,14 @@ use crate::s3::S3FileAsync;
 
 /// Table-based representation of a `ParquetFile`.
 pub struct ParquetTable {
-    // path: String,
-    // length: u64,
     file: S3FileAsync,
     schema: SchemaRef,
 }
 
 impl ParquetTable {
-    /// Initialize a new `ParquetTable` from an s3 file.
-    pub fn new(file: S3FileAsync, schema: SchemaRef) -> Result<Self> {
-        Ok(Self { schema, file })
+    /// Initialize a new `ParquetTable` from an s3 file and an expected schema.
+    pub fn new(file: S3FileAsync, schema: SchemaRef) -> Self {
+        Self { schema, file }
     }
 }
 

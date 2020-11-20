@@ -4,13 +4,18 @@ use crate::bee_query::BeeQuery;
 use crate::catalog::{self, Catalog};
 use crate::dataframe_ops::ClosureDataframeOps;
 use crate::hive_query::HiveQuery;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::Schema;
 use datafusion::prelude::*;
 use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    CatalogError { source: catalog::Error },
+    #[snafu(display("Error with the catalog"))]
+    CatalogNotFound { source: catalog::Error },
+    #[snafu(display("Intermediate schema returned by bee could not be estimated"))]
+    IntermediateSchema {
+        source: datafusion::error::DataFusionError,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -29,11 +34,8 @@ impl QueryPlanner {
         query_id: String,
         nb_bees: usize,
         column_name: String,
+        schema: Arc<Schema>,
     ) -> Result<HiveQuery> {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new(&column_name, DataType::Utf8, false),
-            Field::new(&format!("COUNT({})", &column_name), DataType::UInt64, true),
-        ]));
         let query = move |df: Arc<dyn DataFrame>| {
             // Ok(df)
             // df.select(vec![col(&column_name), col(&format!("COUNT({})", &column_name))])
@@ -65,7 +67,10 @@ impl QueryPlanner {
         };
         Ok(BeeQuery {
             query_id,
-            schema: self.catalog.get_schema("nyc-taxi").context(CatalogError)?,
+            input_schema: self
+                .catalog
+                .get_schema("nyc-taxi")
+                .context(CatalogNotFound)?,
             region: "eu-west-1".to_owned(),
             file_bucket: "cloudfuse-taxi-data".to_owned(),
             file_key: "raw_small/2009/01/data.parquet".to_owned(),
@@ -81,13 +86,22 @@ impl QueryPlanner {
     pub fn plan(&self, column_name: String) -> Result<(HiveQuery, Vec<BeeQuery>)> {
         let query_id = "test0";
         let nb_bees = 2;
+        // prepare bee queries
         let mut bee_queries = vec![];
         for _i in 0..nb_bees {
             let bee_query = self.bee(query_id.to_owned(), column_name.clone())?;
             bee_queries.push(bee_query);
         }
-
-        let hive_query = self.hive(query_id.to_owned(), nb_bees, column_name.clone())?;
+        // compute schema that will be returned by bees
+        let intermediate_schema =
+            bee_queries[0].output_schema().context(IntermediateSchema)?;
+        // prepare hive query
+        let hive_query = self.hive(
+            query_id.to_owned(),
+            nb_bees,
+            column_name.clone(),
+            intermediate_schema,
+        )?;
         Ok((hive_query, bee_queries))
     }
 }
