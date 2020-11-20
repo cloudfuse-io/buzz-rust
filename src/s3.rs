@@ -89,16 +89,6 @@ impl S3FileAsync {
   pub fn prefetch(&self, start: u64, length: usize) {
     self.data.schedule(start, length);
   }
-
-  // TODO the cache should download instead of return an error, this way we could avoid to specify this footer delete
-  pub fn download_footer(&self) {
-    let end_length = 1024 * 1024;
-    let (end_start, end_length) = match self.length.checked_sub(end_length) {
-      Some(val) => (val, end_length),
-      None => (0, self.length),
-    };
-    self.prefetch(end_start, end_length as usize);
-  }
 }
 
 impl Length for S3FileAsync {

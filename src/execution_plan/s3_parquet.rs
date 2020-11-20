@@ -12,7 +12,7 @@ use datafusion::error::{DataFusionError, Result};
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::physical_plan::Partitioning;
 use datafusion::physical_plan::{RecordBatchStream, SendableRecordBatchStream};
-use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
@@ -47,13 +47,21 @@ impl ParquetExec {
         file: S3FileAsync,
         projection: Option<Vec<usize>>,
         batch_size: usize,
+        schema: SchemaRef,
     ) -> Result<Self> {
+        Self::download_footer(file.clone());
         let file_reader = Rc::new(
             SerializedFileReader::new(file.clone())
                 .expect("Failed to create serialized reader"),
         );
         let mut arrow_reader = ParquetFileArrowReader::new(file_reader.clone());
-        let schema = arrow_reader.get_schema()?;
+
+        // TODO what about metadata ?
+        if schema.fields() != arrow_reader.get_schema()?.fields() {
+            return Err(DataFusionError::Plan(
+                "Expected and parsed schema fields are not equal".to_owned(),
+            ));
+        }
 
         let projection = match projection {
             Some(p) => p,
@@ -84,6 +92,15 @@ impl ParquetExec {
             projection,
             batch_size,
         })
+    }
+
+    fn download_footer(file: S3FileAsync) {
+        let end_length = 1024 * 1024;
+        let (end_start, end_length) = match file.len().checked_sub(end_length) {
+            Some(val) => (val, end_length),
+            None => (0, file.len()),
+        };
+        file.prefetch(end_start, end_length as usize);
     }
 }
 

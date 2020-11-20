@@ -15,16 +15,16 @@ use arrow_flight::{
     SchemaResult, Ticket,
 };
 
-use crate::hive_query::ResultsService;
+use crate::results_service::ResultsService;
 
 #[derive(Clone)]
 pub struct FlightServiceImpl {
-    result_service: Arc<ResultsService>,
+    results_service: Arc<ResultsService>,
 }
 
 impl FlightServiceImpl {
-    pub fn new(result_service: Arc<ResultsService>) -> Self {
-        Self { result_service }
+    pub fn new(results_service: Arc<ResultsService>) -> Self {
+        Self { results_service }
     }
 
     pub async fn start(&self) -> tokio::task::JoinHandle<()> {
@@ -128,9 +128,9 @@ impl FlightService for FlightServiceImpl {
             let batch = flight_data_to_arrow_batch(&flight_data, Arc::clone(&schema))
                 .unwrap()
                 .unwrap();
-            self.result_service.add_result(&query_id, batch);
+            self.results_service.add_result(&query_id, batch);
         }
-        self.result_service.task_finished(&query_id);
+        self.results_service.task_finished(&query_id);
         let output = futures::stream::empty();
         Ok(Response::new(Box::pin(output) as Self::DoPutStream))
     }

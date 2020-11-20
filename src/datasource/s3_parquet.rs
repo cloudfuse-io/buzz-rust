@@ -18,10 +18,8 @@ pub struct ParquetTable {
 }
 
 impl ParquetTable {
-    /// Attempt to initialize a new `ParquetTable` from an s3 file.
-    pub fn try_new(file: S3FileAsync) -> Result<Self> {
-        let parquet_exec = ParquetExec::try_new(file.clone(), None, 0)?;
-        let schema = parquet_exec.schema();
+    /// Initialize a new `ParquetTable` from an s3 file.
+    pub fn new(file: S3FileAsync, schema: SchemaRef) -> Result<Self> {
         Ok(Self { schema, file })
     }
 }
@@ -43,6 +41,7 @@ impl TableProvider for ParquetTable {
             self.file.clone(),
             projection.clone(),
             batch_size,
+            Arc::clone(&self.schema),
         )?))
     }
 }

@@ -1,15 +1,11 @@
-use std::sync::Arc;
-
 use arrow::record_batch::RecordBatch;
-use datafusion::prelude::*;
-
-use futures::StreamExt;
-
 use arrow_flight::flight_descriptor;
 use arrow_flight::flight_service_client::FlightServiceClient;
 use arrow_flight::{FlightData, FlightDescriptor};
-
-use buzz::bee_query;
+use buzz::bee_query::BeeQueryRunner;
+use buzz::catalog::StaticCatalog;
+use buzz::query_planner::QueryPlanner;
+use futures::StreamExt;
 
 async fn call_do_put(
     results: Vec<RecordBatch>,
@@ -51,25 +47,14 @@ async fn call_do_put(
     Ok(())
 }
 
-async fn get_data() -> datafusion::error::Result<Vec<RecordBatch>> {
-    let conf = bee_query::QueryConfig {
-        file_bucket: "cloudfuse-taxi-data".to_owned(),
-        file_key: "raw_small/2009/01/data.parquet".to_owned(),
-        file_length: 27301328,
-        // file_key: "raw_5M/2009/01/data.parquet".to_owned(),
-        // file_length: 388070114,
-        ..Default::default()
-    };
-    let query = |df: Arc<dyn DataFrame>| {
-        df.aggregate(vec![col("payment_type")], vec![count(col("payment_type"))])?
-            .sort(vec![col("COUNT(payment_type)").sort(false, false)])
-    };
-    bee_query::run(conf, query).await
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let batch = get_data().await?;
+    let catalog = StaticCatalog::new();
+    let planner = QueryPlanner::new(Box::new(catalog));
+    let (_, mut bee_queries) = planner.plan("payment_type".to_owned())?;
+    let batch = BeeQueryRunner::new()
+        .run(bee_queries.pop().unwrap())
+        .await?;
     call_do_put(batch).await?;
     Ok(())
 }
