@@ -73,10 +73,16 @@ impl QueryPlanner {
                 .context(CatalogNotFound)?,
             region: "eu-west-1".to_owned(),
             file_bucket: "cloudfuse-taxi-data".to_owned(),
-            file_distribution: vec![vec![SizedFile {
-                key: "raw_small/2009/01/data.parquet".to_owned(),
-                length: 27301328,
-            }]],
+            file_distribution: vec![
+                vec![SizedFile {
+                    key: "raw_small/2009/01/data.parquet".to_owned(),
+                    length: 27301328,
+                }],
+                vec![SizedFile {
+                    key: "raw_small/2009/01/data.parquet".to_owned(),
+                    length: 27301328,
+                }],
+            ],
             // file_distribution: vec![vec![SizedFile {
             //     key: "raw_5M/2009/01/data.parquet".to_owned(),
             //     length: 388070114,

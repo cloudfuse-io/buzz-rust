@@ -1,6 +1,6 @@
+use std::iter::Iterator;
 use std::sync::Arc;
 use std::time::Instant;
-use std::iter::Iterator;
 
 use crate::dataframe_ops::DataframeOperations;
 use crate::datasource::{EmptyTable, ParquetTable};
@@ -46,14 +46,17 @@ impl BeeQueryBatch {
         let file_bucket = self.file_bucket.clone();
         let input_schema = self.input_schema.clone();
         let ops = self.ops.clone();
-        self.file_distribution.clone().into_iter().map(move |elem| BeeQuery {
-            query_id: query_id.clone(),
-            region: region.clone(),
-            file_bucket: file_bucket.clone(),
-            files: elem.clone(),
-            input_schema: input_schema.clone(),
-            ops: ops.clone(),
-        })
+        self.file_distribution
+            .clone()
+            .into_iter()
+            .map(move |elem| BeeQuery {
+                query_id: query_id.clone(),
+                region: region.clone(),
+                file_bucket: file_bucket.clone(),
+                files: elem.clone(),
+                input_schema: input_schema.clone(),
+                ops: ops.clone(),
+            })
     }
 }
 
@@ -90,7 +93,8 @@ impl BeeQueryRunner {
             query.files[0].key.clone(),
             query.files[0].length,
             s3::new_client(&query.region),
-        ).await;
+        )
+        .await;
         let parquet_table = Arc::new(ParquetTable::new(file.clone(), query.input_schema));
         let mut ctx = ExecutionContext::with_config(config);
         let df = query.ops.apply_to(ctx.read_table(parquet_table.clone())?)?;

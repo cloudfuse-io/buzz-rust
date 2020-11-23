@@ -3,6 +3,7 @@ pub mod catalog;
 pub mod dataframe_ops;
 pub mod datasource;
 pub mod execution_plan;
+pub mod flight_client;
 pub mod flight_service;
 pub mod hive_query;
 pub mod query_planner;

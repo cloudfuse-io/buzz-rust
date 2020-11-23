@@ -2,20 +2,21 @@ use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use crate::results_service::ResultsService;
 use arrow::datatypes::Schema;
 use arrow_flight::flight_service_server::FlightServiceServer;
-use futures::Stream;
-use tonic::transport::Server;
-use tonic::{Request, Response, Status, Streaming};
-
 use arrow_flight::{
     flight_descriptor, flight_service_server::FlightService,
     utils::flight_data_to_arrow_batch, Action, ActionType, Criteria, Empty, FlightData,
     FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult,
     SchemaResult, Ticket,
 };
+use futures::Stream;
+use tonic::transport::Server;
+use tonic::{Request, Response, Status, Streaming};
 
-use crate::results_service::ResultsService;
+// TODO remove compat when rusoto updated to tokio 0.3
+use tokio_compat_02::FutureExt;
 
 #[derive(Clone)]
 pub struct FlightServiceImpl {
@@ -35,6 +36,8 @@ impl FlightServiceImpl {
             Server::builder()
                 .add_service(svc)
                 .serve(addr)
+                // TODO remove .compat() when rusoto updated to tokio 0.3
+                .compat()
                 .await
                 .unwrap();
         })

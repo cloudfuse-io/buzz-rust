@@ -32,6 +32,12 @@ integ-buzz:
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.buzz.yml build
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.buzz.yml up
 
+example-df:
+	cd code; RUST_BACKTRACE=1 cargo run --example df_s3
+
+example-direct:
+	cd code; RUST_BACKTRACE=1 cargo run --example direct_s3
+
 init:
 	@cd infra; terraform init
 	@cd infra; terraform workspace new ${STAGE} &>/dev/null || echo "${STAGE} already exists"
