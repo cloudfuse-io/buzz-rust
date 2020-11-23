@@ -12,13 +12,13 @@ check-dirty:
 ask-target:
 	@echo "Lets deploy ${GIT_REVISION} in ${STAGE} with profile ${PROFILE}..."
 
-target/docker/lambda.zip: $(shell find src -type f) Cargo.toml docker/Dockerfile
-	mkdir -p ./target/docker
+code/target/docker/lambda.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
+	mkdir -p ./code/target/docker
 	DOCKER_BUILDKIT=1 docker build \
 		-f docker/Dockerfile \
 		--build-arg BIN_NAME=lambda \
 		--target export-stage \
-		--output ./target/docker \
+		--output ./code/target/docker \
 		.
 
 package-flight-server:
@@ -39,7 +39,7 @@ init:
 destroy:
 	cd infra; terraform destroy --var generic_playground_file=${GEN_PLAY_FILE}
 
-force-deploy: ask-target target/docker/lambda.zip
+force-deploy: ask-target code/target/docker/lambda.zip
 	@echo "DEPLOYING ${GIT_REVISION} on ${STAGE}..."
 	@cd infra; terraform workspace select ${STAGE}
 	@cd infra; terraform apply \

@@ -1,5 +1,4 @@
 docker/
 infra/
-target/
 README.md
 Makefile

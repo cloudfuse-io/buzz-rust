@@ -16,11 +16,11 @@ RUN apt-get install musl-tools zip -y
 
 WORKDIR /buildspace
 
-COPY rust-toolchain .
+COPY ./code/rust-toolchain .
 
 RUN rustup target add x86_64-unknown-linux-musl && rustup component add rustfmt 
 
-COPY . .
+COPY ./code .
 
 # use BuildKit experimental cache mount to speed up builds
 RUN --mount=type=cache,target=./target \

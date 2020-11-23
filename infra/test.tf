@@ -22,7 +22,7 @@ module "test" {
   source = "./lambda"
 
   function_base_name = "test"
-  filename           = "../target/docker/lambda.zip"
+  filename           = "../code/target/docker/lambda.zip"
   handler            = "N/A"
   memory_size        = 2048
   timeout            = 10
