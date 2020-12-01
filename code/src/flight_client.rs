@@ -7,14 +7,11 @@ use arrow_flight::{FlightData, FlightDescriptor};
 use futures::stream::Iter;
 use futures::StreamExt;
 
-// TODO remove compat when rusoto updated to tokio 0.3
-use tokio_compat_02::FutureExt;
-
 pub async fn call_do_put(
     results: Vec<RecordBatch>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Create Flight client after delay, to leave time for the server to boot
-    tokio::time::sleep(std::time::Duration::new(1, 0)).await;
+    tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
 
     // add an initial FlightData message that sends schema
     let schema = results[0].schema();
@@ -38,8 +35,7 @@ pub async fn call_do_put(
 
     let request = tonic::Request::new(input);
 
-    // TODO remove .compat() when rusoto updated to tokio 0.3
-    do_put(request).compat().await?;
+    do_put(request).await?;
 
     Ok(())
 }

@@ -22,13 +22,11 @@ path = "src/bin/main_bee.rs"
 
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "6cea669", feature=["prettyprint"] }
-parquet = { git = "https://github.com/apache/arrow", rev = "6cea669" }
-datafusion = { git = "https://github.com/apache/arrow", rev = "6cea669" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev = "6cea669" }
-tokio = { version = "0.3", features = ["io-util", "macros", "rt", "rt-multi-thread", "stream", "sync", "time"] }
-tokio_02 = {version = "0.2", package = "tokio", features = ["rt-threaded"]}
-tokio-compat-02 = "0.1"
+arrow = { git = "https://github.com/apache/arrow", rev = "68866a1e", feature=["prettyprint"] }
+parquet = { git = "https://github.com/apache/arrow", rev = "68866a1e" }
+datafusion = { git = "https://github.com/apache/arrow", rev = "68866a1e" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev = "68866a1e" }
+tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
 rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }
 async-trait = "0.1"

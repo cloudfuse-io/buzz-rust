@@ -7,8 +7,7 @@ use async_trait::async_trait;
 use parquet::file::reader::{ChunkReader, Length};
 use rusoto_core::Region;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3Client, S3};
-// TODO remove 0.2 deps when rusoto updated to tokio 0.3
-use tokio_02::io::AsyncReadExt;
+use tokio::io::AsyncReadExt;
 
 //// S3 Client ////
 
@@ -73,7 +72,12 @@ impl fmt::Debug for S3FileAsync {
 }
 
 impl S3FileAsync {
-  pub async fn new(bucket: String, key: String, length: u64, client: Arc<S3Client>) -> Self {
+  pub async fn new(
+    bucket: String,
+    key: String,
+    length: u64,
+    client: Arc<S3Client>,
+  ) -> Self {
     let downloader = S3Downloader {
       bucket: bucket.clone(),
       key: key.clone(),

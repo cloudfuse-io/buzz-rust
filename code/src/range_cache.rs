@@ -4,8 +4,6 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use snafu::{ensure, Backtrace, OptionExt, Snafu};
-// TODO remove compat when rusoto updated to tokio 0.3
-use tokio_compat_02::FutureExt;
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -85,9 +83,8 @@ impl RangeCache {
                 let cv_ref = Arc::clone(&cv_ref);
                 let pool_ref = Arc::clone(&pool);
                 tokio::spawn(async move {
-                    // TODO remove .compat() when rusoto updated to tokio 0.3
                     let downloaded_chunk =
-                        downloader.download(message.0, message.1).compat().await;
+                        downloader.download(message.0, message.1).await;
                     pool_ref.add_permits(1);
                     data_ref
                         .lock()

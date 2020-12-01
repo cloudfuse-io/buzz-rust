@@ -8,12 +8,13 @@ checksum = "5d2e7343e7fc9de883d1b0341e0b13970f764c14101234857d2ddafa1cb1cac2"
 
 [[package]]
 name = "ahash"
-version = "0.5.8"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eb6ec8807cd25b59e6b8100815afc73f54e294f1a425a2e555971969889a8f8"
+checksum = "865f8b0b3fced577b7df82e9b0eb7609595d7209c0b39e78d0646672e244b1b1"
 dependencies = [
  "getrandom 0.2.0",
  "lazy_static",
+ "version_check",
 ]
 
 [[package]]
@@ -76,7 +77,7 @@ checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 [[package]]
 name = "arrow"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=6cea669#6cea669a0a7fb836a555f3d87177b2517543ddb5"
+source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
 dependencies = [
  "chrono",
  "csv",
@@ -97,7 +98,7 @@ dependencies = [
 [[package]]
 name = "arrow-flight"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=6cea669#6cea669a0a7fb836a555f3d87177b2517543ddb5"
+source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
 dependencies = [
  "arrow",
  "bytes 0.5.6",
@@ -105,7 +106,7 @@ dependencies = [
  "proc-macro2 1.0.24",
  "prost",
  "prost-derive",
- "tokio 0.3.4",
+ "tokio 0.2.22",
  "tonic",
  "tonic-build",
 ]
@@ -285,8 +286,6 @@ dependencies = [
  "serde_json",
  "snafu",
  "tokio 0.2.22",
- "tokio 0.3.4",
- "tokio-compat-02",
  "tonic",
 ]
 
@@ -318,12 +317,6 @@ name = "bytes"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
-
-[[package]]
-name = "bytes"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0dcbc35f504eb6fc275a6d20e4ebcda18cf50d40ba6fabff8c711fa16cb3b16"
 
 [[package]]
 name = "cargo_metadata"
@@ -601,7 +594,7 @@ dependencies = [
 [[package]]
 name = "datafusion"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=6cea669#6cea669a0a7fb836a555f3d87177b2517543ddb5"
+source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
 dependencies = [
  "ahash",
  "arrow",
@@ -616,7 +609,7 @@ dependencies = [
  "pin-project-lite 0.2.0",
  "rustyline",
  "sqlparser",
- "tokio 0.3.4",
+ "tokio 0.2.22",
 ]
 
 [[package]]
@@ -1573,12 +1566,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "once_cell"
-version = "1.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13bd41f508810a131401606d54ac32a467c97172d74ba7662562ebba5ad07fa0"
-
-[[package]]
 name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1628,10 +1615,10 @@ dependencies = [
 [[package]]
 name = "parquet"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=6cea669#6cea669a0a7fb836a555f3d87177b2517543ddb5"
+source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
 dependencies = [
  "arrow",
- "base64 0.12.3",
+ "base64 0.11.0",
  "brotli",
  "byteorder",
  "chrono",
@@ -2708,24 +2695,8 @@ dependencies = [
  "pin-project-lite 0.1.10",
  "signal-hook-registry",
  "slab",
- "tokio-macros 0.2.5",
+ "tokio-macros",
  "winapi 0.3.8",
-]
-
-[[package]]
-name = "tokio"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dfe2523e6fa84ddf5e688151d4e5fddc51678de9752c6512a24714c23818d61"
-dependencies = [
- "autocfg",
- "bytes 0.6.0",
- "futures-core",
- "memchr",
- "num_cpus",
- "pin-project-lite 0.2.0",
- "slab",
- "tokio-macros 0.3.1",
 ]
 
 [[package]]
@@ -2748,19 +2719,6 @@ dependencies = [
  "bytes 0.4.12",
  "futures 0.1.30",
  "tokio-io",
-]
-
-[[package]]
-name = "tokio-compat-02"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb4cec419b8b6f06c32e74aae6d8c5e79646d038a38e5ea2b36045f2c3296e22"
-dependencies = [
- "bytes 0.5.6",
- "once_cell",
- "pin-project-lite 0.1.10",
- "tokio 0.2.22",
- "tokio 0.3.4",
 ]
 
 [[package]]
@@ -2810,17 +2768,6 @@ name = "tokio-macros"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c3acc6aa564495a0f2e1d59fab677cd7f81a19994cfc7f3ad0e64301560389"
-dependencies = [
- "proc-macro2 1.0.24",
- "quote 1.0.3",
- "syn 1.0.44",
-]
-
-[[package]]
-name = "tokio-macros"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21d30fdbb5dc2d8f91049691aa1a9d4d4ae422a21c334ce8936e5886d30c5c45"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.3",

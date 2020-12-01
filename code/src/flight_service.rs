@@ -15,9 +15,6 @@ use futures::Stream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
-// TODO remove compat when rusoto updated to tokio 0.3
-use tokio_compat_02::FutureExt;
-
 #[derive(Clone)]
 pub struct FlightServiceImpl {
     results_service: Arc<ResultsService>,
@@ -36,8 +33,6 @@ impl FlightServiceImpl {
             Server::builder()
                 .add_service(svc)
                 .serve(addr)
-                // TODO remove .compat() when rusoto updated to tokio 0.3
-                .compat()
                 .await
                 .unwrap();
         })
