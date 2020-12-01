@@ -12,6 +12,9 @@ check-dirty:
 ask-target:
 	@echo "Lets deploy ${GIT_REVISION} in ${STAGE} with profile ${PROFILE}..."
 
+test:
+	cd code; RUST_BACKTRACE=1 cargo test
+
 code/target/docker/lambda.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
 	mkdir -p ./code/target/docker
 	DOCKER_BUILDKIT=1 docker build \

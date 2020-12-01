@@ -10,3 +10,10 @@ pub mod query_planner;
 pub mod range_cache;
 pub mod results_service;
 pub mod s3;
+pub mod serde;
+
+// include the generated protobuf source as a submodule
+#[allow(clippy::all)]
+pub mod protobuf {
+    include!(concat!(env!("OUT_DIR"), "/buzz.protobuf.rs"));
+}

@@ -3,21 +3,22 @@ name = "buzz-rust"
 version = "0.1.0"
 authors = ["rdettai <contact@cloudfuse.io>"]
 edition = "2018"
+build = "build.rs"
 
 [lib]
-  name = "buzz"
+name = "buzz"
 
 [[bin]]
-  name = "lambda"
-  path = "src/bin/main_lambda.rs"
+name = "lambda"
+path = "src/bin/main_lambda.rs"
 
 [[bin]]
-  name = "hive"
-  path = "src/bin/main_hive.rs"
+name = "hive"
+path = "src/bin/main_hive.rs"
 
 [[bin]]
-  name = "bee"
-  path = "src/bin/main_bee.rs"
+name = "bee"
+path = "src/bin/main_bee.rs"
 
 
 [dependencies]
@@ -38,3 +39,8 @@ lambda_runtime = "0.2.1"
 tonic = "0.3"
 pin-project = "1.0"
 snafu = "0.6.9"
+prost = "0.6"
+prost-types = "0.6"
+
+[build-dependencies]
+prost-build = { version = "0.6.1" }
