@@ -75,7 +75,7 @@ message LogicalPlanNode {
 
   LogicalPlanNode input = 1;
 
-  ScanNode scan = 10;
+  S3ParquetScanNode scan = 10;
   ProjectionNode projection = 20;
   SelectionNode selection = 21;
   LimitNode limit = 22;
@@ -86,13 +86,17 @@ message ProjectionColumns {
   repeated string columns = 1;
 }
 
-//TODO break this out into separate CsvScanNode and ParquetScanNode
-message ScanNode {
-  string path = 1;
-  ProjectionColumns projection = 2;
-  Schema schema = 3;
-  string file_format = 4; // parquet or csv
-  bool has_header = 5; // csv specific
+message SizedFile {
+  string key = 1;
+  uint64 length = 2;
+}
+
+message S3ParquetScanNode {
+  string region = 1;
+  string bucket = 2;
+  repeated SizedFile files = 3;
+  ProjectionColumns projection = 4;
+  Schema schema = 5;
 }
 
 message ProjectionNode {

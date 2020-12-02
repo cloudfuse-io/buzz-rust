@@ -1,7 +1,7 @@
+use std::any::Any;
 use std::sync::Arc;
 
 use arrow::datatypes::*;
-
 use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::physical_plan::ExecutionPlan;
@@ -19,13 +19,14 @@ impl EmptyTable {
 }
 
 impl TableProvider for EmptyTable {
-    /// Get the schema for this parquet file.
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
-    /// Scan the file(s), using the provided projection, and return one BatchIterator per
-    /// partition.
     fn scan(
         &self,
         _projection: &Option<Vec<usize>>,

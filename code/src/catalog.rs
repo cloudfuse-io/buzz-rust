@@ -12,6 +12,12 @@ pub enum Error {
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
+#[derive(Clone)]
+pub struct SizedFile {
+    pub key: String,
+    pub length: u64,
+}
+
 pub trait Catalog {
     fn get_schema(&self, name: &str) -> Result<Arc<Schema>>;
 }

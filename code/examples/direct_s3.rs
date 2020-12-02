@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use buzz::s3::{self, S3FileAsync};
-use parquet::file::reader::{Length, FileReader, SerializedFileReader};
+use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 
 async fn async_main() {
     let s3_client = Arc::new(s3::new_client("eu-west-1"));
@@ -12,10 +12,12 @@ async fn async_main() {
         "raw_5M/2009/01/data.parquet".to_owned(),
         388070114,
         Arc::clone(&s3_client),
-    ).await;
+    )
+    .await;
 
-    let prefetch_size = 1024*1024;
-    file.prefetch(file.len()-prefetch_size, prefetch_size as usize);
+    // download footer
+    let prefetch_size = 1024 * 1024;
+    file.prefetch(file.len() - prefetch_size, prefetch_size as usize);
 
     let reader =
         SerializedFileReader::new(file).expect("Failed to create serialized reader");

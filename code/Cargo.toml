@@ -22,10 +22,16 @@ path = "src/bin/main_bee.rs"
 
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "68866a1e", feature=["prettyprint"] }
-parquet = { git = "https://github.com/apache/arrow", rev = "68866a1e" }
-datafusion = { git = "https://github.com/apache/arrow", rev = "68866a1e" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev = "68866a1e" }
+arrow = { git = "https://github.com/rdettai/arrow", rev = "7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb", feature=["prettyprint"] }
+parquet = { git = "https://github.com/rdettai/arrow", rev = "7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb" }
+datafusion = { git = "https://github.com/rdettai/arrow", rev = "7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb" }
+arrow-flight = { git = "https://github.com/rdettai/arrow", rev = "7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb" }
+
+# arrow = { path = "../../arrow/rust/arrow", feature=["prettyprint"] }
+# parquet = { path = "../../arrow/rust/parquet" }
+# datafusion = { path = "../../arrow/rust/datafusion" }
+# arrow-flight = { path = "../../arrow/rust/arrow-flight" }
+
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
 rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }

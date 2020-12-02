@@ -1,8 +1,13 @@
 use std::convert::TryInto;
+use std::sync::Arc;
 
+use crate::catalog::SizedFile;
+use crate::datasource::ParquetTable;
 use crate::protobuf;
 use arrow::datatypes::{DataType, Field, Schema};
-use datafusion::logical_plan::{Expr, LogicalPlan, LogicalPlanBuilder, Operator};
+use datafusion::logical_plan::{
+    Expr, LogicalPlan, LogicalPlanBuilder, Operator, TableSource,
+};
 use datafusion::physical_plan::aggregates;
 use datafusion::scalar::ScalarValue;
 
@@ -16,6 +21,18 @@ pub enum Error {
     },
     #[snafu(display("Deser error: {}", msg))]
     Str { msg: String },
+}
+
+macro_rules! convert_required {
+    ($PB:expr) => {{
+        if let Some(field) = $PB.as_ref() {
+            field.try_into()
+        } else {
+            Err(Error::Str {
+                msg: "Missing required field in protobuf".to_owned(),
+            })
+        }
+    }};
 }
 
 macro_rules! convert_box_required {
@@ -78,37 +95,61 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 .build()
                 .context(DataFusion)
         } else if let Some(scan) = &self.scan {
-            match scan.file_format.as_str() {
-                // "csv" => {
-                //     let schema: Schema = convert_required!(scan.schema)?;
-                //     let options = CsvReadOptions::new()
-                //         .schema(&schema)
-                //         .has_header(scan.has_header);
+            // match scan.file_format.as_str() {
+            //     "csv" => {
+            //         let schema: Schema = convert_required!(scan.schema)?;
+            //         let options = CsvReadOptions::new()
+            //             .schema(&schema)
+            //             .has_header(scan.has_header);
 
-                //     let mut projection = None;
-                //     if let Some(column_names) = &scan.projection {
-                //         let column_indices = column_names
-                //             .columns
-                //             .iter()
-                //             .map(|name| schema.index_of(name))
-                //             .collect::<Result<Vec<usize>, _>>()?;
-                //         projection = Some(column_indices);
-                //     }
+            //         let mut projection = None;
+            //         if let Some(column_names) = &scan.projection {
+            //             let column_indices = column_names
+            //                 .columns
+            //                 .iter()
+            //                 .map(|name| schema.index_of(name))
+            //                 .collect::<Result<Vec<usize>, _>>()?;
+            //             projection = Some(column_indices);
+            //         }
 
-                //     LogicalPlanBuilder::scan_csv(&scan.path, options, projection)?
-                //         .build()
-                //         .map_err(|e| e.into())
-                // }
-                "parquet" => {
-                    LogicalPlanBuilder::scan_parquet(&scan.path, None)
-                        .context(DataFusion)? //TODO projection
-                        .build()
-                        .context(DataFusion)
-                }
-                other => Err(Error::Str {
-                    msg: format!("Unsupported file format '{}' for file scan", other),
-                }),
-            }
+            //         LogicalPlanBuilder::scan_csv(&scan.path, options, projection)?
+            //             .build()
+            //             .map_err(|e| e.into())
+            //     }
+            //     "parquet" => {
+            //         LogicalPlanBuilder::scan_parquet(&scan.path, None)
+            //             .context(DataFusion)? //TODO projection
+            //             .build()
+            //             .context(DataFusion)
+            //     }
+            //     other => Err(Error::Str {
+            //         msg: format!("Unsupported file format '{}' for file scan", other),
+            //     }),
+            // }
+            let schema: Schema = convert_required!(scan.schema)?;
+            let schema_ref = Arc::new(schema);
+            let provider = ParquetTable::new(
+                scan.region.to_owned(),
+                scan.bucket.to_owned(),
+                scan.files
+                    .iter()
+                    .map(|sized_file| SizedFile {
+                        key: sized_file.key.to_owned(),
+                        length: sized_file.length,
+                    })
+                    .collect(),
+                schema_ref.clone(),
+            );
+            Ok(LogicalPlan::TableScan {
+                schema_name: "".to_string(),
+                source: TableSource::FromProvider(Arc::new(provider)),
+                table_schema: schema_ref.clone(),
+                projected_schema: schema_ref,
+                projection: None,
+            })
+            // .context(DataFusion)? //TODO projection
+            // .build()
+            // .context(DataFusion)
         } else {
             Err(Error::Str {
                 msg: format!("Unsupported logical plan '{:?}'", self),

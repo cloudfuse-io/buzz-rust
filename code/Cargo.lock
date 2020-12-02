@@ -77,7 +77,7 @@ checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 [[package]]
 name = "arrow"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
+source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
 dependencies = [
  "chrono",
  "csv",
@@ -98,7 +98,7 @@ dependencies = [
 [[package]]
 name = "arrow-flight"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
+source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
 dependencies = [
  "arrow",
  "bytes 0.5.6",
@@ -594,7 +594,7 @@ dependencies = [
 [[package]]
 name = "datafusion"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
+source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
 dependencies = [
  "ahash",
  "arrow",
@@ -1615,7 +1615,7 @@ dependencies = [
 [[package]]
 name = "parquet"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=68866a1e#68866a1ed1e5911adfc0ba0daea283caa8263565"
+source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
 dependencies = [
  "arrow",
  "base64 0.11.0",

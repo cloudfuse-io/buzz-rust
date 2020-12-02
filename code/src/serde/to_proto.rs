@@ -1,12 +1,13 @@
 use std::convert::TryInto;
 
+use crate::datasource::ParquetTable;
 use crate::protobuf;
 use arrow::datatypes::{DataType, Schema};
-use datafusion::logical_plan::{Expr, LogicalPlan};
+use datafusion::logical_plan::{Expr, LogicalPlan, TableSource};
 use datafusion::physical_plan::aggregates;
 use datafusion::scalar::ScalarValue;
 
-use snafu::Snafu;
+use snafu::{OptionExt, Snafu};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -68,37 +69,9 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
 
     fn try_into(self) -> Result<protobuf::LogicalPlanNode, Self::Error> {
         match self {
-            LogicalPlan::CsvScan {
-                path,
-                schema,
-                projection,
-                has_header,
-                ..
-            } => {
-                let mut node = empty_logical_plan_node();
-
-                let projection = projection.as_ref().map(|column_indices| {
-                    let columns: Vec<String> = column_indices
-                        .iter()
-                        .map(|i| schema.field(*i).name().clone())
-                        .collect();
-                    protobuf::ProjectionColumns { columns }
-                });
-
-                let schema: protobuf::Schema = schema.as_ref().try_into()?;
-
-                node.scan = Some(protobuf::ScanNode {
-                    path: path.to_owned(),
-                    projection,
-                    schema: Some(schema),
-                    has_header: *has_header,
-                    file_format: "csv".to_owned(),
-                });
-                Ok(node)
-            }
-            LogicalPlan::ParquetScan {
-                path,
-                schema,
+            LogicalPlan::TableScan {
+                source: TableSource::FromProvider(provider),
+                table_schema,
                 projection,
                 ..
             } => {
@@ -107,20 +80,36 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 let projection = projection.as_ref().map(|column_indices| {
                     let columns: Vec<String> = column_indices
                         .iter()
-                        .map(|i| schema.field(*i).name().clone())
+                        .map(|i| table_schema.field(*i).name().clone())
                         .collect();
                     protobuf::ProjectionColumns { columns }
                 });
 
-                let schema: protobuf::Schema = schema.as_ref().try_into()?;
+                let schema: protobuf::Schema = table_schema.as_ref().try_into()?;
 
-                node.scan = Some(protobuf::ScanNode {
-                    path: path.to_owned(),
+                // Only parquet s3 tables supported here
+                let parquet_table = provider
+                    .as_any()
+                    .downcast_ref::<ParquetTable>()
+                    .context(NotImplemented {
+                        msg: format!("table source to_proto {:?}", self),
+                    })?;
+
+                node.scan = Some(protobuf::S3ParquetScanNode {
+                    region: parquet_table.region().to_owned(),
+                    bucket: parquet_table.bucket().to_owned(),
+                    files: parquet_table
+                        .files()
+                        .iter()
+                        .map(|sized_file| protobuf::SizedFile {
+                            key: sized_file.key.to_owned(),
+                            length: sized_file.length,
+                        })
+                        .collect(),
                     projection,
                     schema: Some(schema),
-                    has_header: false,
-                    file_format: "parquet".to_owned(),
                 });
+
                 Ok(node)
             }
             LogicalPlan::Projection { expr, input, .. } => {

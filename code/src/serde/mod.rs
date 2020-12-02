@@ -3,25 +3,24 @@ pub mod to_proto;
 
 #[cfg(test)]
 mod tests {
-    use crate::protobuf;
-    use datafusion::logical_plan::{col, lit, LogicalPlan, LogicalPlanBuilder};
     use std::convert::TryInto;
+    use std::sync::Arc;
+
+    use crate::catalog::SizedFile;
+    use crate::datasource::ParquetTable;
+    use crate::protobuf;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use datafusion::execution::context::ExecutionContext;
+    use datafusion::logical_plan::LogicalPlan;
+    use datafusion::logical_plan::{col, count};
 
     #[test]
     fn roundtrip() -> std::result::Result<(), Box<dyn std::error::Error>> {
-        // let schema = Schema::new(vec![
-        //     Field::new("id", DataType::Int32, false),
-        //     Field::new("first_name", DataType::Utf8, false),
-        //     Field::new("last_name", DataType::Utf8, false),
-        //     Field::new("state", DataType::Utf8, false),
-        //     Field::new("salary", DataType::Int32, false),
-        // ]);
+        let parquet_table = mock_table();
 
-        let source_plan = LogicalPlanBuilder::scan_parquet("employee.csv", None)
-            .and_then(|plan| plan.filter(col("state").eq(lit("CO"))))
-            .and_then(|plan| plan.project(vec![col("id")]))
-            .and_then(|plan| plan.build())
-            .unwrap();
+        let source_df = ExecutionContext::new().read_table(Arc::new(parquet_table))?;
+
+        let source_plan = source_df.to_logical_plan();
 
         let proto: protobuf::LogicalPlanNode = (&source_plan).try_into()?;
 
@@ -35,44 +34,47 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // fn roundtrip_aggregate() -> Result<()> {
-    //     let schema = Schema::new(vec![
-    //         Field::new("id", DataType::Int32, false),
-    //         Field::new("first_name", DataType::Utf8, false),
-    //         Field::new("last_name", DataType::Utf8, false),
-    //         Field::new("state", DataType::Utf8, false),
-    //         Field::new("salary", DataType::Int32, false),
-    //     ]);
+    #[test]
+    fn roundtrip_aggregate() -> Result<(), Box<dyn std::error::Error>> {
+        let parquet_table = mock_table();
 
-    //     let plan = LogicalPlanBuilder::scan_csv(
-    //         "employee.csv",
-    //         CsvReadOptions::new().schema(&schema).has_header(true),
-    //         None,
-    //     )
-    //     .and_then(|plan| plan.aggregate(vec![col("state")], vec![max(col("salary"))]))
-    //     .and_then(|plan| plan.build())
-    //     .unwrap();
+        let source_df = ExecutionContext::new()
+            .read_table(Arc::new(parquet_table))?
+            .aggregate(vec![col("state")], vec![count(col("state"))])?;
 
-    //     let action = &Action::InteractiveQuery {
-    //         plan: plan.clone(),
-    //         settings: HashMap::new(),
-    //         // tables: vec![TableMeta::Csv {
-    //         //     table_name: "employee".to_owned(),
-    //         //     has_header: true,
-    //         //     path: "/foo/bar.csv".to_owned(),
-    //         //     schema: schema.clone(),
-    //         // }],
-    //     };
+        let source_plan = source_df.to_logical_plan();
 
-    //     let proto: protobuf::Action = action.try_into()?;
+        let proto: protobuf::LogicalPlanNode = (&source_plan).try_into()?;
 
-    //     let action2: Action = (&proto).try_into()?;
+        let transfered_plan: LogicalPlan = (&proto).try_into()?;
 
-    //     assert_eq!(format!("{:?}", action), format!("{:?}", action2));
+        assert_eq!(
+            format!("{:?}", source_plan),
+            format!("{:?}", transfered_plan)
+        );
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
+
+    fn mock_table() -> ParquetTable {
+        let schema = Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new("state", DataType::Utf8, false),
+            Field::new("salary", DataType::Int32, false),
+        ]);
+
+        ParquetTable::new(
+            "south-pole-1".to_owned(),
+            "santa".to_owned(),
+            vec![SizedFile {
+                key: "gift1".to_owned(),
+                length: 1,
+            }],
+            Arc::new(schema),
+        )
+    }
 
     // fn max(expr: Expr) -> Expr {
     //     Expr::AggregateFunction {

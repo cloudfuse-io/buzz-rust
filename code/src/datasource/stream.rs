@@ -1,10 +1,10 @@
+use std::any::Any;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
+use crate::execution_plan::StreamExec;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
-
-use crate::execution_plan::StreamExec;
 use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
 use datafusion::physical_plan::ExecutionPlan;
@@ -28,13 +28,14 @@ impl StreamTable {
 }
 
 impl TableProvider for StreamTable {
-    /// Get the schema for this parquet file.
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
-    /// Scan the file(s), using the provided projection, and return one BatchIterator per
-    /// partition.
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,

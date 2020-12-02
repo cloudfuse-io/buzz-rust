@@ -2,20 +2,14 @@ use std::iter::Iterator;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::catalog::SizedFile;
 use crate::dataframe_ops::DataframeOperations;
 use crate::datasource::{EmptyTable, ParquetTable};
-use crate::s3;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::prelude::*;
-
-#[derive(Clone)]
-pub struct SizedFile {
-    pub key: String,
-    pub length: u64,
-}
 
 pub struct BeeQueryBatch {
     pub query_id: String,
@@ -88,16 +82,19 @@ impl BeeQueryRunner {
         let config = ExecutionConfig::new()
             .with_concurrency(self.concurrency)
             .with_batch_size(self.batch_size);
-        let file = s3::S3FileAsync::new(
-            query.file_bucket.clone(),
-            query.files[0].key.clone(),
-            query.files[0].length,
-            s3::new_client(&query.region),
-        )
-        .await;
-        let parquet_table = Arc::new(ParquetTable::new(file.clone(), query.input_schema));
+
+        let mut parquet_table = ParquetTable::new(
+            query.region,
+            query.file_bucket,
+            query.files,
+            query.input_schema,
+        );
+        parquet_table.start_download().await;
+
         let mut ctx = ExecutionContext::with_config(config);
-        let df = query.ops.apply_to(ctx.read_table(parquet_table.clone())?)?;
+        let df = query
+            .ops
+            .apply_to(ctx.read_table(Arc::new(parquet_table))?)?;
         let logical_plan = df.to_logical_plan();
         if debug {
             println!("=> Original logical plan:\n{:?}", logical_plan);

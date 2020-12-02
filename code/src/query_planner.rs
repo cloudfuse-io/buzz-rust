@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::bee_query::{BeeQueryBatch, SizedFile};
-use crate::catalog::{self, Catalog};
+use crate::bee_query::BeeQueryBatch;
+use crate::catalog::{self, Catalog, SizedFile};
 use crate::dataframe_ops::ClosureDataframeOps;
 use crate::hive_query::HiveQuery;
 use arrow::datatypes::Schema;
