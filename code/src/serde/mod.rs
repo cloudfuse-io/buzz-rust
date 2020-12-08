@@ -75,11 +75,4 @@ mod tests {
             Arc::new(schema),
         )
     }
-
-    // fn max(expr: Expr) -> Expr {
-    //     Expr::AggregateFunction {
-    //         name: "MAX".to_owned(),
-    //         args: vec![expr],
-    //     }
-    // }
 }

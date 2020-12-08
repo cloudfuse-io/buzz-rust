@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use crate::catalog::SizedFile;
 use crate::datasource::ParquetTable;
+use crate::error::BuzzError;
+use crate::internal_err;
 use crate::protobuf;
 use arrow::datatypes::{DataType, Field, Schema};
 use datafusion::logical_plan::{
@@ -11,26 +13,12 @@ use datafusion::logical_plan::{
 use datafusion::physical_plan::aggregates;
 use datafusion::scalar::ScalarValue;
 
-use snafu::{ResultExt, Snafu};
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("DataFusion error"))]
-    DataFusion {
-        source: datafusion::error::DataFusionError,
-    },
-    #[snafu(display("Deser error: {}", msg))]
-    Str { msg: String },
-}
-
 macro_rules! convert_required {
     ($PB:expr) => {{
         if let Some(field) = $PB.as_ref() {
             field.try_into()
         } else {
-            Err(Error::Str {
-                msg: "Missing required field in protobuf".to_owned(),
-            })
+            Err(internal_err!("Missing required field in protobuf"))
         }
     }};
 }
@@ -40,15 +28,13 @@ macro_rules! convert_box_required {
         if let Some(field) = $PB.as_ref() {
             field.as_ref().try_into()
         } else {
-            Err(Error::Str {
-                msg: "Missing required field in protobuf".to_owned(),
-            })
+            Err(internal_err!("Missing required field in protobuf"))
         }
     }};
 }
 
 impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
-    type Error = Error;
+    type Error = BuzzError;
 
     fn try_into(self) -> Result<LogicalPlan, Self::Error> {
         if let Some(projection) = &self.projection {
@@ -60,10 +46,9 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                         .iter()
                         .map(|expr| expr.try_into())
                         .collect::<Result<Vec<_>, _>>()?,
-                )
-                .context(DataFusion)?
+                )?
                 .build()
-                .context(DataFusion)
+                .map_err(|e| e.into())
         } else if let Some(selection) = &self.selection {
             let input: LogicalPlan = convert_box_required!(self.input)?;
             LogicalPlanBuilder::from(&input)
@@ -73,10 +58,9 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                         .as_ref()
                         .expect("expression required")
                         .try_into()?,
-                )
-                .context(DataFusion)?
+                )?
                 .build()
-                .context(DataFusion)
+                .map_err(|e| e.into())
         } else if let Some(aggregate) = &self.aggregate {
             let input: LogicalPlan = convert_box_required!(self.input)?;
             let group_expr = aggregate
@@ -90,42 +74,10 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 .map(|expr| expr.try_into())
                 .collect::<Result<Vec<_>, _>>()?;
             LogicalPlanBuilder::from(&input)
-                .aggregate(group_expr, aggr_expr)
-                .context(DataFusion)?
+                .aggregate(group_expr, aggr_expr)?
                 .build()
-                .context(DataFusion)
+                .map_err(|e| e.into())
         } else if let Some(scan) = &self.scan {
-            // match scan.file_format.as_str() {
-            //     "csv" => {
-            //         let schema: Schema = convert_required!(scan.schema)?;
-            //         let options = CsvReadOptions::new()
-            //             .schema(&schema)
-            //             .has_header(scan.has_header);
-
-            //         let mut projection = None;
-            //         if let Some(column_names) = &scan.projection {
-            //             let column_indices = column_names
-            //                 .columns
-            //                 .iter()
-            //                 .map(|name| schema.index_of(name))
-            //                 .collect::<Result<Vec<usize>, _>>()?;
-            //             projection = Some(column_indices);
-            //         }
-
-            //         LogicalPlanBuilder::scan_csv(&scan.path, options, projection)?
-            //             .build()
-            //             .map_err(|e| e.into())
-            //     }
-            //     "parquet" => {
-            //         LogicalPlanBuilder::scan_parquet(&scan.path, None)
-            //             .context(DataFusion)? //TODO projection
-            //             .build()
-            //             .context(DataFusion)
-            //     }
-            //     other => Err(Error::Str {
-            //         msg: format!("Unsupported file format '{}' for file scan", other),
-            //     }),
-            // }
             let schema: Schema = convert_required!(scan.schema)?;
             let schema_ref = Arc::new(schema);
             let provider = ParquetTable::new(
@@ -147,19 +99,14 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 projected_schema: schema_ref,
                 projection: None,
             })
-            // .context(DataFusion)? //TODO projection
-            // .build()
-            // .context(DataFusion)
         } else {
-            Err(Error::Str {
-                msg: format!("Unsupported logical plan '{:?}'", self),
-            })
+            Err(internal_err!("Unsupported logical plan '{:?}'", self))
         }
     }
 }
 
 impl TryInto<Expr> for &protobuf::LogicalExprNode {
-    type Error = Error;
+    type Error = BuzzError;
 
     fn try_into(self) -> Result<Expr, Self::Error> {
         if let Some(binary_expr) = &self.binary_expr {
@@ -227,9 +174,10 @@ impl TryInto<Expr> for &protobuf::LogicalExprNode {
                 f if f == protobuf::AggregateFunction::Count as i32 => {
                     Ok(aggregates::AggregateFunction::Count)
                 }
-                other => Err(Error::Str {
-                    msg: format!("Unsupported aggregate function '{:?}'", other),
-                }),
+                other => Err(internal_err!(
+                    "Unsupported aggregate function '{:?}'",
+                    other
+                )),
             }?;
             // TODO what about distinct ???
             Ok(Expr::AggregateFunction {
@@ -243,14 +191,12 @@ impl TryInto<Expr> for &protobuf::LogicalExprNode {
                 alias.alias.clone(),
             ))
         } else {
-            Err(Error::Str {
-                msg: format!("Unsupported logical expression '{:?}'", self),
-            })
+            Err(internal_err!("Unsupported logical expression '{:?}'", self))
         }
     }
 }
 
-fn from_proto_binary_op(op: &str) -> Result<Operator, Error> {
+fn from_proto_binary_op(op: &str) -> Result<Operator, BuzzError> {
     match op {
         "Eq" => Ok(Operator::Eq),
         "NotEq" => Ok(Operator::NotEq),
@@ -262,13 +208,11 @@ fn from_proto_binary_op(op: &str) -> Result<Operator, Error> {
         "Minus" => Ok(Operator::Minus),
         "Multiply" => Ok(Operator::Multiply),
         "Divide" => Ok(Operator::Divide),
-        other => Err(Error::Str {
-            msg: format!("Unsupported binary operator '{:?}'", other),
-        }),
+        other => Err(internal_err!("Unsupported binary operator '{:?}'", other)),
     }
 }
 
-fn from_proto_arrow_type(dt: i32) -> Result<DataType, Error> {
+fn from_proto_arrow_type(dt: i32) -> Result<DataType, BuzzError> {
     match dt {
         dt if dt == protobuf::ArrowType::Uint8 as i32 => Ok(DataType::UInt8),
         dt if dt == protobuf::ArrowType::Int8 as i32 => Ok(DataType::Int8),
@@ -281,14 +225,12 @@ fn from_proto_arrow_type(dt: i32) -> Result<DataType, Error> {
         dt if dt == protobuf::ArrowType::Float as i32 => Ok(DataType::Float32),
         dt if dt == protobuf::ArrowType::Double as i32 => Ok(DataType::Float64),
         dt if dt == protobuf::ArrowType::Utf8 as i32 => Ok(DataType::Utf8),
-        other => Err(Error::Str {
-            msg: format!("Unsupported data type {:?}", other),
-        }),
+        other => Err(internal_err!("Unsupported data type {:?}", other)),
     }
 }
 
 impl TryInto<Schema> for &protobuf::Schema {
-    type Error = Error;
+    type Error = BuzzError;
 
     fn try_into(self) -> Result<Schema, Self::Error> {
         let fields = self
@@ -305,11 +247,9 @@ impl TryInto<Schema> for &protobuf::Schema {
 
 fn parse_required_expr(
     p: &Option<Box<protobuf::LogicalExprNode>>,
-) -> Result<Expr, Error> {
+) -> Result<Expr, BuzzError> {
     match p {
         Some(expr) => expr.as_ref().try_into(),
-        None => Err(Error::Str {
-            msg: "Missing required expression".to_owned(),
-        }),
+        None => Err(internal_err!("Missing required expression")),
     }
 }

@@ -5,10 +5,10 @@ use std::time::Instant;
 use crate::catalog::SizedFile;
 use crate::dataframe_ops::DataframeOperations;
 use crate::datasource::{EmptyTable, ParquetTable};
+use crate::error::Result;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
-use datafusion::error::Result;
 use datafusion::prelude::*;
 
 pub struct BeeQueryBatch {

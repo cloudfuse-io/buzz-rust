@@ -1,16 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::error::Result;
+use crate::internal_err;
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
-use snafu::{OptionExt, Snafu};
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("Catalog entry not found{}", name))]
-    CatalogEntryNotFound { name: String },
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Clone)]
 pub struct SizedFile {
@@ -67,10 +60,10 @@ impl StaticCatalog {
 
 impl Catalog for StaticCatalog {
     fn get_schema(&self, name: &str) -> Result<Arc<Schema>> {
-        Ok(Arc::clone(self.data.get(name).context(
-            CatalogEntryNotFound {
-                name: name.to_owned(),
-            },
-        )?))
+        Ok(Arc::clone(
+            self.data
+                .get(name)
+                .ok_or(internal_err!("{} not found", name))?,
+        ))
     }
 }

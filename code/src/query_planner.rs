@@ -1,24 +1,13 @@
 use std::sync::Arc;
 
 use crate::bee_query::BeeQueryBatch;
-use crate::catalog::{self, Catalog, SizedFile};
+use crate::catalog::{Catalog, SizedFile};
 use crate::dataframe_ops::ClosureDataframeOps;
+use crate::error::Result;
 use crate::hive_query::HiveQuery;
 use arrow::datatypes::Schema;
-use datafusion::prelude::*;
-use snafu::{ResultExt, Snafu};
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("Error with the catalog"))]
-    CatalogNotFound { source: catalog::Error },
-    #[snafu(display("Intermediate schema returned by bee could not be estimated"))]
-    IntermediateSchema {
-        source: datafusion::error::DataFusionError,
-    },
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
+use datafusion::dataframe::DataFrame;
+use datafusion::logical_plan::{col, count, sum};
 
 pub struct QueryPlanner {
     catalog: Box<dyn Catalog>,
@@ -67,10 +56,7 @@ impl QueryPlanner {
         };
         Ok(BeeQueryBatch {
             query_id,
-            input_schema: self
-                .catalog
-                .get_schema("nyc-taxi")
-                .context(CatalogNotFound)?,
+            input_schema: self.catalog.get_schema("nyc-taxi")?,
             region: "eu-west-1".to_owned(),
             file_bucket: "cloudfuse-taxi-data".to_owned(),
             file_distribution: vec![
@@ -98,8 +84,7 @@ impl QueryPlanner {
         // prepare bee queries
         let bee_query = self.bee(query_id.to_owned(), column_name.clone())?;
         // compute schema that will be returned by bees
-        let intermediate_schema =
-            bee_query.output_schema().context(IntermediateSchema)?;
+        let intermediate_schema = bee_query.output_schema()?;
         // prepare hive query
         let hive_query = self.hive(
             query_id.to_owned(),

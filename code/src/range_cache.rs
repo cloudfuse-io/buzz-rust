@@ -2,26 +2,9 @@ use std::collections::BTreeMap;
 use std::io::{self, Read};
 use std::sync::{Arc, Mutex};
 
+use crate::error::Result;
+use crate::{ensure, internal_err};
 use async_trait::async_trait;
-use snafu::{ensure, Backtrace, OptionExt, Snafu};
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("Download not finished for bytes {}-{}", start, start + *length as u64))]
-    DownloadNotFinished {
-        start: u64,
-        length: usize,
-        backtrace: Backtrace,
-    },
-    #[snafu(display("Download was not scheduled for bytes {}-{}", start, start + *length as u64))]
-    DownloadNotScheduled {
-        start: u64,
-        length: usize,
-        backtrace: Backtrace,
-    },
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub struct CachedRead {
     data: Arc<Vec<u8>>,
@@ -115,7 +98,11 @@ impl RangeCache {
             before = data_guard.range((Unbounded, Included(start))).next_back();
         }
 
-        let before = before.context(DownloadNotScheduled { start, length })?;
+        let before = before.ok_or(internal_err!(
+            "Download not scheduled: (start={},end={})",
+            start,
+            length,
+        ))?;
 
         let unused_start = start - before.0;
 
@@ -123,7 +110,9 @@ impl RangeCache {
             Download::Done(bytes) => {
                 ensure!(
                     bytes.len() >= unused_start as usize + length,
-                    DownloadNotScheduled { start, length }
+                    "Download not scheduled: (start={},end={})",
+                    start,
+                    length,
                 );
                 Ok(CachedRead {
                     data: Arc::clone(bytes),

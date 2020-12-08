@@ -1,28 +1,16 @@
 use std::convert::TryInto;
 
 use crate::datasource::ParquetTable;
+use crate::error::BuzzError;
 use crate::protobuf;
+use crate::{internal_err, not_impl_err};
 use arrow::datatypes::{DataType, Schema};
 use datafusion::logical_plan::{Expr, LogicalPlan, TableSource};
 use datafusion::physical_plan::aggregates;
 use datafusion::scalar::ScalarValue;
 
-use snafu::{OptionExt, Snafu};
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("DataFusion error"))]
-    DataFusion {
-        source: datafusion::error::DataFusionError,
-    },
-    #[snafu(display("Deser error: {}", msg))]
-    Str { msg: String },
-    #[snafu(display("Not implemented: {}", msg))]
-    NotImplemented { msg: String },
-}
-
 impl TryInto<protobuf::Schema> for &Schema {
-    type Error = Error;
+    type Error = BuzzError;
 
     fn try_into(self) -> Result<protobuf::Schema, Self::Error> {
         Ok(protobuf::Schema {
@@ -45,7 +33,7 @@ impl TryInto<protobuf::Schema> for &Schema {
     }
 }
 
-fn to_proto_arrow_type(dt: &DataType) -> Result<protobuf::ArrowType, Error> {
+fn to_proto_arrow_type(dt: &DataType) -> Result<protobuf::ArrowType, BuzzError> {
     match dt {
         DataType::Int8 => Ok(protobuf::ArrowType::Int8),
         DataType::Int16 => Ok(protobuf::ArrowType::Int16),
@@ -58,14 +46,12 @@ fn to_proto_arrow_type(dt: &DataType) -> Result<protobuf::ArrowType, Error> {
         DataType::Float32 => Ok(protobuf::ArrowType::Float),
         DataType::Float64 => Ok(protobuf::ArrowType::Double),
         DataType::Utf8 => Ok(protobuf::ArrowType::Utf8),
-        other => Err(Error::Str {
-            msg: format!("Unsupported data type {:?}", other),
-        }),
+        other => Err(internal_err!("Unsupported data type {:?}", other)),
     }
 }
 
 impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
-    type Error = Error;
+    type Error = BuzzError;
 
     fn try_into(self) -> Result<protobuf::LogicalPlanNode, Self::Error> {
         match self {
@@ -91,9 +77,7 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 let parquet_table = provider
                     .as_any()
                     .downcast_ref::<ParquetTable>()
-                    .context(NotImplemented {
-                        msg: format!("table source to_proto {:?}", self),
-                    })?;
+                    .ok_or(not_impl_err!("table source to_proto {:?}", self))?;
 
                 node.scan = Some(protobuf::S3ParquetScanNode {
                     region: parquet_table.region().to_owned(),
@@ -117,10 +101,11 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 let mut node = empty_logical_plan_node();
                 node.input = Some(Box::new(input));
                 node.projection = Some(protobuf::ProjectionNode {
-                    expr: expr
-                        .iter()
-                        .map(|expr| expr.try_into())
-                        .collect::<Result<Vec<_>, Error>>()?,
+                    expr: expr.iter().map(|expr| expr.try_into()).collect::<Result<
+                        Vec<_>,
+                        BuzzError,
+                    >>(
+                    )?,
                 });
                 Ok(node)
             }
@@ -146,23 +131,21 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                     group_expr: group_expr
                         .iter()
                         .map(|expr| expr.try_into())
-                        .collect::<Result<Vec<_>, Error>>()?,
+                        .collect::<Result<Vec<_>, BuzzError>>()?,
                     aggr_expr: aggr_expr
                         .iter()
                         .map(|expr| expr.try_into())
-                        .collect::<Result<Vec<_>, Error>>()?,
+                        .collect::<Result<Vec<_>, BuzzError>>()?,
                 });
                 Ok(node)
             }
-            _ => Err(Error::NotImplemented {
-                msg: format!("logical plan to_proto {:?}", self),
-            }),
+            _ => Err(not_impl_err!("logical plan to_proto {:?}", self)),
         }
     }
 }
 
 impl TryInto<protobuf::LogicalExprNode> for &Expr {
-    type Error = Error;
+    type Error = BuzzError;
 
     fn try_into(self) -> Result<protobuf::LogicalExprNode, Self::Error> {
         match self {
@@ -269,9 +252,10 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
                     }
                     Ok(expr)
                 }
-                other => Err(Error::NotImplemented {
-                    msg: format!("to_proto unsupported scalar value {:?}", other),
-                }),
+                other => Err(not_impl_err!(
+                    "to_proto unsupported scalar value {:?}",
+                    other
+                )),
             },
             Expr::BinaryExpr { left, op, right } => {
                 let mut expr = empty_expr_node();
@@ -287,21 +271,21 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
 
                 let aggr_function = match fun {
                     aggregates::AggregateFunction::Min => {
-                        Ok(protobuf::AggregateFunction::Min)
+                        protobuf::AggregateFunction::Min
                     }
                     aggregates::AggregateFunction::Max => {
-                        Ok(protobuf::AggregateFunction::Max)
+                        protobuf::AggregateFunction::Max
                     }
                     aggregates::AggregateFunction::Sum => {
-                        Ok(protobuf::AggregateFunction::Sum)
+                        protobuf::AggregateFunction::Sum
                     }
                     aggregates::AggregateFunction::Avg => {
-                        Ok(protobuf::AggregateFunction::Avg)
+                        protobuf::AggregateFunction::Avg
                     }
                     aggregates::AggregateFunction::Count => {
-                        Ok(protobuf::AggregateFunction::Count)
+                        protobuf::AggregateFunction::Count
                     }
-                }?;
+                };
 
                 let arg = &args[0];
                 expr.aggregate_expr = Some(Box::new(protobuf::AggregateExprNode {
@@ -310,9 +294,7 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
                 }));
                 Ok(expr)
             }
-            _ => Err(Error::NotImplemented {
-                msg: format!("logical expr to_proto {:?}", self),
-            }),
+            _ => Err(not_impl_err!("logical expr to_proto {:?}", self)),
         }
     }
 }

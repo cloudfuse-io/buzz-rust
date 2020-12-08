@@ -3,10 +3,10 @@ use std::time::Instant;
 
 use crate::dataframe_ops::DataframeOperations;
 use crate::datasource::StreamTable;
+use crate::error::Result;
 use crate::results_service::ResultsService;
 use arrow::datatypes::Schema;
 use arrow::util::pretty;
-use datafusion::error::Result;
 use datafusion::prelude::*;
 
 pub struct HiveQuery {

@@ -8,6 +8,12 @@ checksum = "5d2e7343e7fc9de883d1b0341e0b13970f764c14101234857d2ddafa1cb1cac2"
 
 [[package]]
 name = "ahash"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6789e291be47ace86a60303502173d84af8327e3627ecf334356ee0f87a164c"
+
+[[package]]
+name = "ahash"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "865f8b0b3fced577b7df82e9b0eb7609595d7209c0b39e78d0646672e244b1b1"
@@ -77,7 +83,7 @@ checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 [[package]]
 name = "arrow"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
+source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
 dependencies = [
  "chrono",
  "csv",
@@ -98,7 +104,7 @@ dependencies = [
 [[package]]
 name = "arrow-flight"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
+source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
 dependencies = [
  "arrow",
  "bytes 0.5.6",
@@ -284,7 +290,6 @@ dependencies = [
  "rusoto_s3",
  "serde",
  "serde_json",
- "snafu",
  "tokio 0.2.22",
  "tonic",
 ]
@@ -594,15 +599,16 @@ dependencies = [
 [[package]]
 name = "datafusion"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
+source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
 dependencies = [
- "ahash",
+ "ahash 0.6.1",
  "arrow",
  "async-trait",
  "chrono",
  "clap",
  "crossbeam",
  "futures 0.3.4",
+ "hashbrown",
  "num_cpus",
  "parquet",
  "paste",
@@ -679,12 +685,6 @@ name = "discard"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
-
-[[package]]
-name = "doc-comment"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "either"
@@ -978,6 +978,9 @@ name = "hashbrown"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
+dependencies = [
+ "ahash 0.4.6",
+]
 
 [[package]]
 name = "heck"
@@ -1615,7 +1618,7 @@ dependencies = [
 [[package]]
 name = "parquet"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/rdettai/arrow?rev=7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb#7ef4a952d13b8ae34218ab78c088d9d78ecdc3bb"
+source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
 dependencies = [
  "arrow",
  "base64 0.11.0",
@@ -2344,27 +2347,6 @@ name = "smallvec"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05720e22615919e4734f6a99ceae50d00226c3c5aca406e102ebc33298214e0a"
-
-[[package]]
-name = "snafu"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c4e6046e4691afe918fd1b603fd6e515bcda5388a1092a9edbada307d159f09"
-dependencies = [
- "doc-comment",
- "snafu-derive",
-]
-
-[[package]]
-name = "snafu-derive"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7073448732a89f2f3e6581989106067f403d378faeafb4a50812eb814170d3e5"
-dependencies = [
- "proc-macro2 1.0.24",
- "quote 1.0.3",
- "syn 1.0.44",
-]
 
 [[package]]
 name = "snap"

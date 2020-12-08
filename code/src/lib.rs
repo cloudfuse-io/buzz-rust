@@ -2,6 +2,7 @@ pub mod bee_query;
 pub mod catalog;
 pub mod dataframe_ops;
 pub mod datasource;
+pub mod error;
 pub mod execution_plan;
 pub mod flight_client;
 pub mod flight_service;
