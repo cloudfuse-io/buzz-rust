@@ -43,7 +43,7 @@ pub async fn call_do_put(
 async fn do_put(
     request: tonic::Request<Iter<IntoIter<FlightData>>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = FlightServiceClient::connect("http://hive:50051").await?;
+    let mut client = FlightServiceClient::connect("http://hcomb:50051").await?;
     // wait for the response to be complete but don't do anything with it
     client
         .do_put(request)

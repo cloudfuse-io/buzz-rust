@@ -11,7 +11,9 @@ use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
 use datafusion::prelude::*;
 
-pub struct BeeQueryBatch {
+// TODO delete this file
+
+pub struct HBeeQueryBatch {
     pub query_id: String,
     pub region: String,
     pub file_bucket: String,
@@ -20,8 +22,8 @@ pub struct BeeQueryBatch {
     pub ops: Arc<dyn DataframeOperations>,
 }
 
-impl BeeQueryBatch {
-    /// The schema that will be returned by the bees after executing they part of the query
+impl HBeeQueryBatch {
+    /// The schema that will be returned by the hbees after executing they part of the query
     pub fn output_schema(&self) -> Result<Arc<Schema>> {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
         let empty_table = EmptyTable::new(Arc::clone(&self.input_schema));
@@ -30,11 +32,11 @@ impl BeeQueryBatch {
         Ok(Arc::clone(logical_plan.schema()))
     }
 
-    pub fn nb_bees(&self) -> usize {
+    pub fn nb_hbees(&self) -> usize {
         self.file_distribution.len()
     }
 
-    pub fn queries(&self) -> impl Iterator<Item = BeeQuery> {
+    pub fn queries(&self) -> impl Iterator<Item = HBeeQuery> {
         let query_id = self.query_id.clone();
         let region = self.region.clone();
         let file_bucket = self.file_bucket.clone();
@@ -43,7 +45,7 @@ impl BeeQueryBatch {
         self.file_distribution
             .clone()
             .into_iter()
-            .map(move |elem| BeeQuery {
+            .map(move |elem| HBeeQuery {
                 query_id: query_id.clone(),
                 region: region.clone(),
                 file_bucket: file_bucket.clone(),
@@ -54,7 +56,7 @@ impl BeeQueryBatch {
     }
 }
 
-pub struct BeeQuery {
+pub struct HBeeQuery {
     pub query_id: String,
     pub region: String,
     pub file_bucket: String,
@@ -63,12 +65,12 @@ pub struct BeeQuery {
     pub ops: Arc<dyn DataframeOperations>,
 }
 
-pub struct BeeQueryRunner {
+pub struct HBeeQueryRunner {
     concurrency: usize,
     batch_size: usize,
 }
 
-impl BeeQueryRunner {
+impl HBeeQueryRunner {
     pub fn new() -> Self {
         Self {
             concurrency: 1,
@@ -76,7 +78,7 @@ impl BeeQueryRunner {
         }
     }
 
-    pub async fn run(&self, query: BeeQuery) -> Result<Vec<RecordBatch>> {
+    pub async fn run(&self, query: HBeeQuery) -> Result<Vec<RecordBatch>> {
         let debug = true;
         let mut start = Instant::now();
         let config = ExecutionConfig::new()

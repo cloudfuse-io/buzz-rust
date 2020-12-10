@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::error::Result;
-use crate::internal_err;
+use crate::datasource::StaticCatalogTable;
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
+use datafusion::execution::context::ExecutionContext;
 
 #[derive(Clone)]
 pub struct SizedFile {
@@ -12,20 +11,26 @@ pub struct SizedFile {
 }
 
 pub trait Catalog {
-    fn get_schema(&self, name: &str) -> Result<Arc<Schema>>;
+    fn fill(&self, context: &mut ExecutionContext);
 }
 
-pub struct StaticCatalog {
-    data: HashMap<String, Arc<Schema>>,
+pub struct StaticCatalog {}
+
+impl Catalog for StaticCatalog {
+    fn fill(&self, context: &mut ExecutionContext) {
+        context.register_table(
+            "nyc-taxi",
+            Box::new(StaticCatalogTable::new(
+                Self::nyc_taxi(),
+                "eu-west-1".to_owned(),
+                "cloudfuse-taxi-data".to_owned(),
+                vec![],
+            )),
+        );
+    }
 }
 
 impl StaticCatalog {
-    pub fn new() -> Self {
-        let mut data = HashMap::new();
-        data.insert("nyc-taxi".to_owned(), Self::nyc_taxi());
-        Self { data }
-    }
-
     fn nyc_taxi() -> Arc<Schema> {
         Arc::new(Schema::new(vec![
             Field::new("vendor_id", DataType::Utf8, true),
@@ -55,15 +60,5 @@ impl StaticCatalog {
             Field::new("tolls_amount", DataType::Float32, true),
             Field::new("total_amount", DataType::Float32, true),
         ]))
-    }
-}
-
-impl Catalog for StaticCatalog {
-    fn get_schema(&self, name: &str) -> Result<Arc<Schema>> {
-        Ok(Arc::clone(
-            self.data
-                .get(name)
-                .ok_or(internal_err!("{} not found", name))?,
-        ))
     }
 }

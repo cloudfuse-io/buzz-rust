@@ -24,7 +24,7 @@ impl ResultsService {
     pub fn new_query(
         &self,
         query_id: String,
-        nb_bees: usize,
+        nb_hbees: usize,
     ) -> impl Stream<Item = RecordBatch> {
         let (tx, rx) = mpsc::unbounded_channel();
         {
@@ -33,7 +33,7 @@ impl ResultsService {
                 query_id,
                 IntermediateRes {
                     tx: Some(tx),
-                    remaining_tasks: nb_bees,
+                    remaining_tasks: nb_hbees,
                 },
             );
         }

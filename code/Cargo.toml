@@ -13,12 +13,12 @@ name = "lambda"
 path = "src/bin/main_lambda.rs"
 
 [[bin]]
-name = "hive"
-path = "src/bin/main_hive.rs"
+name = "hcomb"
+path = "src/bin/main_hcomb.rs"
 
 [[bin]]
-name = "bee"
-path = "src/bin/main_bee.rs"
+name = "hbee"
+path = "src/bin/main_hbee.rs"
 
 
 [dependencies]

@@ -1,25 +1,25 @@
 version: '2.4'
 
 services:
-  hive:
+  hcomb:
     build:
       context: ../
       dockerfile: ./docker/Dockerfile
       target: runtime-stage
       args: 
-        BIN_NAME: hive
+        BIN_NAME: hcomb
     environment: 
       - RUST_BACKTRACE=1
     ports:
       - 50051
 
-  bee:
+  hbee:
     build:
       context: ../
       dockerfile: ./docker/Dockerfile
       target: runtime-stage
       args: 
-        BIN_NAME: bee
+        BIN_NAME: hbee
     cpus: 2
     volumes:
       - ~/.aws/credentials:/.aws/credentials
@@ -30,6 +30,6 @@ services:
     mem_limit: 2048M
     scale: 2
     depends_on:
-      - hive
+      - hcomb
     
 
