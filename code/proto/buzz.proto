@@ -105,6 +105,7 @@ message S3ParquetScanNode {
 
 message ResultScanNode {
   string query_id = 1;
+  uint32 nb_hbee = 2;
   ProjectionColumns projection = 4;
   bytes schema = 5;
 }

@@ -41,11 +41,23 @@ impl FuseService {
         let plan_future = self.query_planner.plan(query.steps, query.capacity.zones);
         let (addresses, plan) = join!(addresses_future, plan_future);
         let plan = plan?;
-        assert_eq!(addresses.len(), plan.zones.len());
+
+        assert!(
+            addresses.len() >= plan.zones.len(),
+            "Not enough hcombs (found {}) were started for plan (expected {})",
+            addresses.len(),
+            plan.zones.len()
+        );
+
+        if plan.zones.len() == 0 {
+            println!("no work scheduled, empty result");
+            return Ok(());
+        }
+
         // connect to the hcombs to init the query and get result handle
         // TODO connect in //
         let mut result_streams = vec![];
-        for i in 0..addresses.len() {
+        for i in 0..plan.zones.len() {
             let batch_stream = self
                 .hcomb_scheduler
                 .schedule(

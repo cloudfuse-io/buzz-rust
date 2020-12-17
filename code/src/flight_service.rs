@@ -85,7 +85,11 @@ impl FlightService for FlightServiceImpl {
         let plan: LogicalPlan = (&plan_node)
             .try_into()
             .map_err(|_| Status::invalid_argument("Plan could not be converted"))?;
-        let results = self.hcomb_service.execute_query(plan).await;
+        let results = self
+            .hcomb_service
+            .execute_query(plan)
+            .await
+            .map_err(|e| Status::internal(format!("Query failed: {}", e)))?;
         let flights =
             flight_utils::batches_to_flight("query0", results).map(|flt| Ok(flt));
         Ok(Response::new(Box::pin(flights)))

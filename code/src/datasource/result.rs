@@ -14,20 +14,26 @@ use futures::Stream;
 pub struct ResultTable {
     stream: Mutex<Option<Pin<Box<dyn Stream<Item = RecordBatch> + Send>>>>,
     query_id: String,
+    nb_hbee: usize,
     schema: SchemaRef,
 }
 
 impl ResultTable {
-    pub fn new(query_id: String, schema: SchemaRef) -> Self {
+    pub fn new(query_id: String, nb_hbee: usize, schema: SchemaRef) -> Self {
         Self {
             stream: Mutex::new(None),
             schema,
+            nb_hbee,
             query_id,
         }
     }
 
     pub fn query_id(&self) -> &str {
         &self.query_id
+    }
+
+    pub fn nb_hbee(&self) -> usize {
+        self.nb_hbee
     }
 
     pub fn set(&self, stream: Pin<Box<dyn Stream<Item = RecordBatch> + Send>>) {

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use crate::catalog::Catalog;
 use crate::datasource::{ResultTable, StaticCatalogTable};
 use crate::error::Result;
+use crate::not_impl_err;
 use crate::query::{BuzzStep, BuzzStepType};
-use datafusion::error::DataFusionError;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::LogicalPlan;
 use futures::future::{BoxFuture, FutureExt};
@@ -50,6 +50,7 @@ impl QueryPlanner {
                 && query_steps[1].step_type == BuzzStepType::HComb,
             "You must have one exactly one hbee step followed by one hcomb step for now"
         );
+
         let bee_df = self.execution_context.sql(&query_steps[0].sql)?;
         let bee_plan = bee_df.to_logical_plan();
         let bee_output_schema = bee_plan.schema().as_ref().clone();
@@ -58,6 +59,7 @@ impl QueryPlanner {
         // register a handle to the intermediate table on the context
         let result_table = ResultTable::new(
             format!("{}-{}", &query_steps[0].name, Utc::now().to_rfc3339()),
+            bee_plans.len(),
             bee_output_schema.into(),
         );
         self.execution_context
@@ -69,10 +71,11 @@ impl QueryPlanner {
 
         // TODO check that the source is a valid hcomb provider
 
-        println!("=> Plan result: hcomb_plan =\n{:?}", hcomb_plan);
+        // If they are less hbees than hcombs, don't use all hcombs
+        let used_hcomb = std::cmp::min(nb_hcomb as usize, bee_plans.len());
 
         // init plans for each zone
-        let mut zones = (0..nb_hcomb)
+        let mut zones = (0..used_hcomb)
             .map(|_i| ZonePlan {
                 hbee: vec![],
                 hcomb: hcomb_plan.clone(),
@@ -82,7 +85,7 @@ impl QueryPlanner {
         bee_plans
             .into_iter()
             .enumerate()
-            .for_each(|(i, bee_plan)| zones[i % (nb_hcomb as usize)].hbee.push(bee_plan));
+            .for_each(|(i, bee_plan)| zones[i % used_hcomb].hbee.push(bee_plan));
 
         Ok(DistributedPlan { zones: zones })
     }
@@ -96,10 +99,9 @@ impl QueryPlanner {
         async move {
             let new_inputs = datafusion::optimizer::utils::inputs(&plan);
             if new_inputs.len() > 1 {
-                Err(DataFusionError::NotImplemented(
-                    "Operations with more than one inputs are not supported".to_owned(),
-                )
-                .into())
+                Err(not_impl_err!(
+                    "Operations with more than one inputs are not supported",
+                ))
             } else if new_inputs.len() == 1 {
                 self.split(new_inputs[0]).await
             } else if let Some(catalog_table) = Self::as_catalog(&plan) {
@@ -121,12 +123,7 @@ impl QueryPlanner {
     }
 
     fn as_catalog<'a>(plan: &'a LogicalPlan) -> Option<&'a StaticCatalogTable> {
-        if let LogicalPlan::TableScan {
-            // TODO matching not required after PR #8910 goes through
-            source: table,
-            ..
-        } = plan
-        {
+        if let LogicalPlan::TableScan { source: table, .. } = plan {
             table.as_any().downcast_ref::<StaticCatalogTable>()
         } else {
             None

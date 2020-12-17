@@ -61,6 +61,7 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                     node.scan = Some(protobuf::logical_plan_node::Scan::Result(
                         protobuf::ResultScanNode {
                             query_id: result_table.query_id().to_owned(),
+                            nb_hbee: result_table.nb_hbee() as u32,
                             projection,
                             schema: schema.ipc_message,
                         },

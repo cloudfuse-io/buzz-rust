@@ -1,38 +1,19 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use crate::catalog::SizedFile;
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::physical_plan::ExecutionPlan;
 
-/// An expression that defines a date range
-/// Should be replaced by a regular DataFusion expr once expression folding is implemented
-// pub struct DateExpr {
-//     min_date: u64,
-//     max_date: u64,
-// }
-
-// impl DateExpr {
-//     fn overlaps(&self, other: &Self) -> bool {
-//         self.min_date <= other.max_date && other.min_date <= self.max_date
-//     }
-// }
-
-#[derive(Clone)]
-pub struct CatalogFile {
-    key: String,
-    length: u64,
-    // expr: DateExpr,
-}
-
 /// A catalog table that contains a static list of files.
 pub struct StaticCatalogTable {
     schema: SchemaRef,
     region: String,
     bucket: String,
-    files: Vec<CatalogFile>,
+    files: Vec<SizedFile>,
 }
 
 impl StaticCatalogTable {
@@ -41,7 +22,7 @@ impl StaticCatalogTable {
         schema: SchemaRef,
         region: String,
         bucket: String,
-        files: Vec<CatalogFile>,
+        files: Vec<SizedFile>,
     ) -> Self {
         Self {
             schema,

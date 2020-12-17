@@ -32,12 +32,12 @@ pub async fn start_fuse() -> Result<(), Box<dyn std::error::Error>> {
         .run(BuzzQuery {
             steps: vec![
                 BuzzStep {
-                    sql: "SELECT payment_type, COUNT(payment_type) FROM nyc_taxi GROUP BY payment_type".to_owned(),
+                    sql: "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi GROUP BY payment_type".to_owned(),
                     name: "nyc_taxi_map".to_owned(),
                     step_type: BuzzStepType::HBee,
                 },
                 BuzzStep {
-                    sql: "SELECT payment_type, SUM(COUNT(payment_type)) FROM nyc_taxi_map GROUP BY payment_type".to_owned(),
+                    sql: "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type".to_owned(),
                     name: "nyc_taxi_reduce".to_owned(),
                     step_type: BuzzStepType::HComb,
                 },

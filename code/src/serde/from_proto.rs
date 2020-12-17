@@ -15,16 +15,6 @@ use datafusion::logical_plan::{
 use datafusion::physical_plan::aggregates;
 use datafusion::scalar::ScalarValue;
 
-// macro_rules! convert_required {
-//     ($PB:expr) => {{
-//         if let Some(field) = $PB.as_ref() {
-//             field.try_into()
-//         } else {
-//             Err(internal_err!("Missing required field in protobuf"))
-//         }
-//     }};
-// }
-
 macro_rules! convert_box_required {
     ($PB:expr) => {{
         if let Some(field) = $PB.as_ref() {
@@ -108,8 +98,11 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                         .ok_or_else(|| {
                             internal_err!("Unable to convert flight data to Arrow schema")
                         })?;
-                    let provider =
-                        ResultTable::new(scan_node.query_id.to_owned(), Arc::new(schema));
+                    let provider = ResultTable::new(
+                        scan_node.query_id.to_owned(),
+                        scan_node.nb_hbee as usize,
+                        Arc::new(schema),
+                    );
                     Arc::new(provider)
                 }
             };
