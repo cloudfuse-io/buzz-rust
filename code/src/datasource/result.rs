@@ -11,24 +11,31 @@ use datafusion::error::Result;
 use datafusion::physical_plan::ExecutionPlan;
 use futures::Stream;
 
-pub struct StreamTable {
+pub struct ResultTable {
     stream: Mutex<Option<Pin<Box<dyn Stream<Item = RecordBatch> + Send>>>>,
+    query_id: String,
     schema: SchemaRef,
 }
 
-impl StreamTable {
-    pub fn try_new(
-        stream: Pin<Box<dyn Stream<Item = RecordBatch> + Send>>,
-        schema: SchemaRef,
-    ) -> Result<Self> {
-        Ok(Self {
-            stream: Mutex::new(Some(stream)),
+impl ResultTable {
+    pub fn new(query_id: String, schema: SchemaRef) -> Self {
+        Self {
+            stream: Mutex::new(None),
             schema,
-        })
+            query_id,
+        }
+    }
+
+    pub fn query_id(&self) -> &str {
+        &self.query_id
+    }
+
+    pub fn set(&self, stream: Pin<Box<dyn Stream<Item = RecordBatch> + Send>>) {
+        self.stream.lock().unwrap().replace(stream);
     }
 }
 
-impl TableProvider for StreamTable {
+impl TableProvider for ResultTable {
     fn as_any(&self) -> &dyn Any {
         self
     }

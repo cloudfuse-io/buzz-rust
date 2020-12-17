@@ -9,8 +9,8 @@ build = "build.rs"
 name = "buzz"
 
 [[bin]]
-name = "lambda"
-path = "src/bin/main_lambda.rs"
+name = "integ"
+path = "src/bin/main_integ.rs"
 
 [[bin]]
 name = "hcomb"
@@ -20,19 +20,24 @@ path = "src/bin/main_hcomb.rs"
 name = "hbee"
 path = "src/bin/main_hbee.rs"
 
+[[bin]]
+name = "fuse"
+path = "src/bin/main_fuse.rs"
+
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "bc5b74", feature=["prettyprint"] }
-parquet = { git = "https://github.com/apache/arrow", rev = "bc5b74" }
-datafusion = { git = "https://github.com/apache/arrow", rev = "bc5b74" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev = "bc5b74" }
+arrow = { git = "https://github.com/apache/arrow", rev = "6fafedf", feature=["prettyprint"] }
+parquet = { git = "https://github.com/apache/arrow", rev = "6fafedf" }
+datafusion = { git = "https://github.com/apache/arrow", rev = "6fafedf" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev = "6fafedf" }
 
 # arrow = { path = "../../arrow/rust/arrow", feature=["prettyprint"] }
 # parquet = { path = "../../arrow/rust/parquet" }
 # datafusion = { path = "../../arrow/rust/datafusion" }
 # arrow-flight = { path = "../../arrow/rust/arrow-flight" }
 
-tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
+chrono = { version = "0.4" }
+tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded", "io-std"] }
 rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
 rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }
 async-trait = "0.1"
@@ -44,6 +49,7 @@ tonic = "0.3"
 pin-project = "1.0"
 prost = "0.6"
 prost-types = "0.6"
+hyper = { version = "0.13.4", features = ["stream"] }
 
 [build-dependencies]
 prost-build = { version = "0.6.1" }

@@ -1,30 +1,30 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::catalog::SizedFile;
-use crate::datasource::ParquetTable;
 use arrow::datatypes::*;
+use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::physical_plan::ExecutionPlan;
 
 /// An expression that defines a date range
 /// Should be replaced by a regular DataFusion expr once expression folding is implemented
-pub struct DateExpr {
-    min_date: u64,
-    max_date: u64,
-}
+// pub struct DateExpr {
+//     min_date: u64,
+//     max_date: u64,
+// }
 
-impl DateExpr {
-    fn overlaps(&self, other: &Self) -> bool {
-        self.min_date <= other.max_date && other.min_date <= self.max_date
-    }
-}
+// impl DateExpr {
+//     fn overlaps(&self, other: &Self) -> bool {
+//         self.min_date <= other.max_date && other.min_date <= self.max_date
+//     }
+// }
 
+#[derive(Clone)]
 pub struct CatalogFile {
     key: String,
     length: u64,
-    expr: DateExpr,
+    // expr: DateExpr,
 }
 
 /// A catalog table that contains a static list of files.
@@ -51,27 +51,19 @@ impl StaticCatalogTable {
         }
     }
 
-    // TODO move this into a trait + change DateExpr with DataFusion expr
-    pub fn plan(&self, expr: &DateExpr) -> Vec<Arc<dyn TableProvider>> {
-        let mut files = vec![];
-
-        for file in &self.files {
-            if file.expr.overlaps(expr) {
-                files.push(SizedFile {
-                    key: file.key.clone(),
-                    length: file.length,
+    // TODO move this into a trait + add DataFusion expr
+    pub fn split(&self) -> Vec<Arc<dyn TableProvider + Send + Sync>> {
+        self.files
+            .iter()
+            .map(|file| -> Arc<dyn TableProvider + Send + Sync> {
+                Arc::new(StaticCatalogTable {
+                    schema: self.schema().clone(),
+                    region: self.region.clone(),
+                    bucket: self.bucket.clone(),
+                    files: vec![file.clone()],
                 })
-            }
-        }
-
-        let table = ParquetTable::new(
-            self.region.to_owned(),
-            self.bucket.to_owned(),
-            files,
-            Arc::clone(&self.schema),
-        );
-
-        vec![Arc::new(table)]
+            })
+            .collect::<Vec<_>>()
     }
 }
 
@@ -92,5 +84,9 @@ impl TableProvider for StaticCatalogTable {
         Err(DataFusionError::Plan(
             "Catalog table cannot generate an execution plan".to_owned(),
         ))
+    }
+
+    fn statistics(&self) -> Statistics {
+        Statistics::default()
     }
 }

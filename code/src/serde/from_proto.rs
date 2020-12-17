@@ -2,26 +2,28 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 use crate::catalog::SizedFile;
-use crate::datasource::ParquetTable;
+use crate::datasource::{ParquetTable, ResultTable};
 use crate::error::BuzzError;
 use crate::internal_err;
 use crate::protobuf;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::Schema;
+use arrow::ipc::convert;
+use datafusion::datasource::TableProvider;
 use datafusion::logical_plan::{
-    Expr, LogicalPlan, LogicalPlanBuilder, Operator, TableSource,
+    Expr, LogicalPlan, LogicalPlanBuilder, Operator, ToDFSchema,
 };
 use datafusion::physical_plan::aggregates;
 use datafusion::scalar::ScalarValue;
 
-macro_rules! convert_required {
-    ($PB:expr) => {{
-        if let Some(field) = $PB.as_ref() {
-            field.try_into()
-        } else {
-            Err(internal_err!("Missing required field in protobuf"))
-        }
-    }};
-}
+// macro_rules! convert_required {
+//     ($PB:expr) => {{
+//         if let Some(field) = $PB.as_ref() {
+//             field.try_into()
+//         } else {
+//             Err(internal_err!("Missing required field in protobuf"))
+//         }
+//     }};
+// }
 
 macro_rules! convert_box_required {
     ($PB:expr) => {{
@@ -78,25 +80,46 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 .build()
                 .map_err(|e| e.into())
         } else if let Some(scan) = &self.scan {
-            let schema: Schema = convert_required!(scan.schema)?;
-            let schema_ref = Arc::new(schema);
-            let provider = ParquetTable::new(
-                scan.region.to_owned(),
-                scan.bucket.to_owned(),
-                scan.files
-                    .iter()
-                    .map(|sized_file| SizedFile {
-                        key: sized_file.key.to_owned(),
-                        length: sized_file.length,
-                    })
-                    .collect(),
-                schema_ref.clone(),
-            );
+            // let mut provider: Arc<dyn TableProvider + Send + Sync>;
+            // let mut schema: Arc<Schema>;
+            let provider: Arc<dyn TableProvider + Send + Sync> = match scan {
+                protobuf::logical_plan_node::Scan::S3Parquet(scan_node) => {
+                    let schema: Schema = convert::schema_from_bytes(&scan_node.schema)
+                        .ok_or_else(|| {
+                            internal_err!("Unable to convert flight data to Arrow schema")
+                        })?;
+                    let provider = ParquetTable::new(
+                        scan_node.region.to_owned(),
+                        scan_node.bucket.to_owned(),
+                        scan_node
+                            .files
+                            .iter()
+                            .map(|sized_file| SizedFile {
+                                key: sized_file.key.to_owned(),
+                                length: sized_file.length,
+                            })
+                            .collect(),
+                        Arc::new(schema),
+                    );
+                    Arc::new(provider)
+                }
+                protobuf::logical_plan_node::Scan::Result(scan_node) => {
+                    let schema: Schema = convert::schema_from_bytes(&scan_node.schema)
+                        .ok_or_else(|| {
+                            internal_err!("Unable to convert flight data to Arrow schema")
+                        })?;
+                    let provider =
+                        ResultTable::new(scan_node.query_id.to_owned(), Arc::new(schema));
+                    Arc::new(provider)
+                }
+            };
+
+            // TODO: projection does not seem to be right
+            let projected_schema = provider.schema().to_dfschema_ref()?;
             Ok(LogicalPlan::TableScan {
-                schema_name: "".to_string(),
-                source: TableSource::FromProvider(Arc::new(provider)),
-                table_schema: schema_ref.clone(),
-                projected_schema: schema_ref,
+                table_name: "".to_string(),
+                source: provider,
+                projected_schema,
                 projection: None,
             })
         } else {
@@ -209,39 +232,6 @@ fn from_proto_binary_op(op: &str) -> Result<Operator, BuzzError> {
         "Multiply" => Ok(Operator::Multiply),
         "Divide" => Ok(Operator::Divide),
         other => Err(internal_err!("Unsupported binary operator '{:?}'", other)),
-    }
-}
-
-fn from_proto_arrow_type(dt: i32) -> Result<DataType, BuzzError> {
-    match dt {
-        dt if dt == protobuf::ArrowType::Uint8 as i32 => Ok(DataType::UInt8),
-        dt if dt == protobuf::ArrowType::Int8 as i32 => Ok(DataType::Int8),
-        dt if dt == protobuf::ArrowType::Uint16 as i32 => Ok(DataType::UInt16),
-        dt if dt == protobuf::ArrowType::Int16 as i32 => Ok(DataType::Int16),
-        dt if dt == protobuf::ArrowType::Uint32 as i32 => Ok(DataType::UInt32),
-        dt if dt == protobuf::ArrowType::Int32 as i32 => Ok(DataType::Int32),
-        dt if dt == protobuf::ArrowType::Uint64 as i32 => Ok(DataType::UInt64),
-        dt if dt == protobuf::ArrowType::Int64 as i32 => Ok(DataType::Int64),
-        dt if dt == protobuf::ArrowType::Float as i32 => Ok(DataType::Float32),
-        dt if dt == protobuf::ArrowType::Double as i32 => Ok(DataType::Float64),
-        dt if dt == protobuf::ArrowType::Utf8 as i32 => Ok(DataType::Utf8),
-        other => Err(internal_err!("Unsupported data type {:?}", other)),
-    }
-}
-
-impl TryInto<Schema> for &protobuf::Schema {
-    type Error = BuzzError;
-
-    fn try_into(self) -> Result<Schema, Self::Error> {
-        let fields = self
-            .columns
-            .iter()
-            .map(|c| {
-                let dt: Result<DataType, _> = from_proto_arrow_type(c.arrow_type);
-                dt.and_then(|dt| Ok(Field::new(&c.name, dt, c.nullable)))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Schema::new(fields))
     }
 }
 

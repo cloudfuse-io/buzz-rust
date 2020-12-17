@@ -9,6 +9,7 @@ use crate::error::Result;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
+use datafusion::datasource::EmptyTable;
 use datafusion::prelude::*;
 
 // TODO delete this file

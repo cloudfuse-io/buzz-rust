@@ -1,17 +1,34 @@
 version: '2.4'
 
 services:
-  hcomb:
+  fuse:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+      target: runtime-stage
+      args: 
+        BIN_NAME: fuse
+    environment: 
+      - RUST_BACKTRACE=1
+    depends_on:
+      - hcomb0
+      - hbee
+
+  hcomb0:
     build:
       context: ../
       dockerfile: ./docker/Dockerfile
       target: runtime-stage
       args: 
         BIN_NAME: hcomb
+        PORT: 50051
     environment: 
       - RUST_BACKTRACE=1
+    mem_limit: 4096M
+    cpus: 4
     ports:
       - 50051
+    # scale: 1
 
   hbee:
     build:
@@ -20,7 +37,7 @@ services:
       target: runtime-stage
       args: 
         BIN_NAME: hbee
-    cpus: 2
+        PORT: 3000
     volumes:
       - ~/.aws/credentials:/.aws/credentials
     environment: 
@@ -28,8 +45,8 @@ services:
       - AWS_PROFILE
       - RUST_BACKTRACE=1
     mem_limit: 2048M
-    scale: 2
-    depends_on:
-      - hcomb
-    
+    cpus: 2
+    ports:
+      - 3000
+    # scale: 1
 

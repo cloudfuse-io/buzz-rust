@@ -19,7 +19,7 @@ pub struct StaticCatalog {}
 impl Catalog for StaticCatalog {
     fn fill(&self, context: &mut ExecutionContext) {
         context.register_table(
-            "nyc-taxi",
+            "nyc_taxi",
             Box::new(StaticCatalogTable::new(
                 Self::nyc_taxi(),
                 "eu-west-1".to_owned(),

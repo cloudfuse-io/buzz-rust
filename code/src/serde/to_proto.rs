@@ -1,54 +1,13 @@
 use std::convert::TryInto;
 
-use crate::datasource::ParquetTable;
+use crate::datasource::{ParquetTable, ResultTable};
 use crate::error::BuzzError;
+use crate::not_impl_err;
 use crate::protobuf;
-use crate::{internal_err, not_impl_err};
-use arrow::datatypes::{DataType, Schema};
-use datafusion::logical_plan::{Expr, LogicalPlan, TableSource};
+use arrow::ipc::{writer, writer::IpcWriteOptions};
+use datafusion::logical_plan::{Expr, LogicalPlan};
 use datafusion::physical_plan::aggregates;
 use datafusion::scalar::ScalarValue;
-
-impl TryInto<protobuf::Schema> for &Schema {
-    type Error = BuzzError;
-
-    fn try_into(self) -> Result<protobuf::Schema, Self::Error> {
-        Ok(protobuf::Schema {
-            columns: self
-                .fields()
-                .iter()
-                .map(|field| {
-                    let proto = to_proto_arrow_type(&field.data_type());
-                    proto.and_then(|arrow_type| {
-                        Ok(protobuf::Field {
-                            name: field.name().to_owned(),
-                            arrow_type: arrow_type.into(),
-                            nullable: field.is_nullable(),
-                            children: vec![],
-                        })
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-        })
-    }
-}
-
-fn to_proto_arrow_type(dt: &DataType) -> Result<protobuf::ArrowType, BuzzError> {
-    match dt {
-        DataType::Int8 => Ok(protobuf::ArrowType::Int8),
-        DataType::Int16 => Ok(protobuf::ArrowType::Int16),
-        DataType::Int32 => Ok(protobuf::ArrowType::Int32),
-        DataType::Int64 => Ok(protobuf::ArrowType::Int64),
-        DataType::UInt8 => Ok(protobuf::ArrowType::Uint8),
-        DataType::UInt16 => Ok(protobuf::ArrowType::Uint16),
-        DataType::UInt32 => Ok(protobuf::ArrowType::Uint32),
-        DataType::UInt64 => Ok(protobuf::ArrowType::Uint64),
-        DataType::Float32 => Ok(protobuf::ArrowType::Float),
-        DataType::Float64 => Ok(protobuf::ArrowType::Double),
-        DataType::Utf8 => Ok(protobuf::ArrowType::Utf8),
-        other => Err(internal_err!("Unsupported data type {:?}", other)),
-    }
-}
 
 impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
     type Error = BuzzError;
@@ -56,8 +15,7 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
     fn try_into(self) -> Result<protobuf::LogicalPlanNode, Self::Error> {
         match self {
             LogicalPlan::TableScan {
-                source: TableSource::FromProvider(provider),
-                table_schema,
+                source: provider,
                 projection,
                 ..
             } => {
@@ -66,33 +24,50 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 let projection = projection.as_ref().map(|column_indices| {
                     let columns: Vec<String> = column_indices
                         .iter()
-                        .map(|i| table_schema.field(*i).name().clone())
+                        .map(|i| provider.schema().field(*i).name().clone())
                         .collect();
                     protobuf::ProjectionColumns { columns }
                 });
 
-                let schema: protobuf::Schema = table_schema.as_ref().try_into()?;
+                // TODO recycle options (and writer?)
+                let options = IpcWriteOptions::default();
+                let data_gen = writer::IpcDataGenerator::default();
+                let schema = data_gen.schema_to_bytes(&provider.schema(), &options);
 
-                // Only parquet s3 tables supported here
-                let parquet_table = provider
-                    .as_any()
-                    .downcast_ref::<ParquetTable>()
-                    .ok_or(not_impl_err!("table source to_proto {:?}", self))?;
+                // dynamic dispatch on the TableProvider:
+                let provider = provider.as_any();
+                if provider.is::<ParquetTable>() {
+                    let parquet_table = provider.downcast_ref::<ParquetTable>().unwrap();
 
-                node.scan = Some(protobuf::S3ParquetScanNode {
-                    region: parquet_table.region().to_owned(),
-                    bucket: parquet_table.bucket().to_owned(),
-                    files: parquet_table
-                        .files()
-                        .iter()
-                        .map(|sized_file| protobuf::SizedFile {
-                            key: sized_file.key.to_owned(),
-                            length: sized_file.length,
-                        })
-                        .collect(),
-                    projection,
-                    schema: Some(schema),
-                });
+                    node.scan = Some(protobuf::logical_plan_node::Scan::S3Parquet(
+                        protobuf::S3ParquetScanNode {
+                            region: parquet_table.region().to_owned(),
+                            bucket: parquet_table.bucket().to_owned(),
+                            files: parquet_table
+                                .files()
+                                .iter()
+                                .map(|sized_file| protobuf::SizedFile {
+                                    key: sized_file.key.to_owned(),
+                                    length: sized_file.length,
+                                })
+                                .collect(),
+                            projection,
+                            schema: schema.ipc_message,
+                        },
+                    ));
+                } else if provider.is::<ResultTable>() {
+                    let result_table = provider.downcast_ref::<ResultTable>().unwrap();
+
+                    node.scan = Some(protobuf::logical_plan_node::Scan::Result(
+                        protobuf::ResultScanNode {
+                            query_id: result_table.query_id().to_owned(),
+                            projection,
+                            schema: schema.ipc_message,
+                        },
+                    ));
+                } else {
+                    return Err(not_impl_err!("table source to_proto {:?}", self));
+                }
 
                 Ok(node)
             }

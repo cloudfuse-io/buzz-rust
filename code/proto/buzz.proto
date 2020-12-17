@@ -75,7 +75,11 @@ message LogicalPlanNode {
 
   LogicalPlanNode input = 1;
 
-  S3ParquetScanNode scan = 10;
+  oneof scan {
+    S3ParquetScanNode s3_parquet = 10;
+    ResultScanNode result = 11;
+  }
+
   ProjectionNode projection = 20;
   SelectionNode selection = 21;
   LimitNode limit = 22;
@@ -96,7 +100,13 @@ message S3ParquetScanNode {
   string bucket = 2;
   repeated SizedFile files = 3;
   ProjectionColumns projection = 4;
-  Schema schema = 5;
+  bytes schema = 5;
+}
+
+message ResultScanNode {
+  string query_id = 1;
+  ProjectionColumns projection = 4;
+  bytes schema = 5;
 }
 
 message ProjectionNode {
@@ -114,53 +124,4 @@ message AggregateNode {
 
 message LimitNode {
   uint32 limit = 1;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Arrow Data Types
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-message Schema {
-  repeated Field columns = 1;
-}
-
-message Field {
-  // name of the field
-  string name = 1;
-  ArrowType arrow_type = 2;
-  bool nullable = 3;
-  // for complex data types like structs, unions
-  repeated Field children = 4;
-}
-
-// copied from GandivaType from Apache Arrow project
-enum ArrowType {
-  NONE = 0;     // arrow::Type::NA
-  BOOL = 1;     // arrow::Type::BOOL
-  UINT8 = 2;    // arrow::Type::UINT8
-  INT8 = 3;     // arrow::Type::INT8
-  UINT16 = 4;   // represents arrow::Type fields in src/arrow/type.h
-  INT16 = 5;
-  UINT32 = 6;
-  INT32 = 7;
-  UINT64 = 8;
-  INT64 = 9;
-  HALF_FLOAT = 10;
-  FLOAT = 11;
-  DOUBLE = 12;
-  UTF8 = 13;
-  BINARY = 14;
-  FIXED_SIZE_BINARY = 15;
-  DATE32 = 16;
-  DATE64 = 17;
-  TIMESTAMP = 18;
-  TIME32 = 19;
-  TIME64 = 20;
-  INTERVAL = 21;
-  DECIMAL = 22;
-  LIST = 23;
-  STRUCT = 24;
-  UNION = 25;
-  DICTIONARY = 26;
-  MAP = 27;
 }

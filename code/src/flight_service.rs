@@ -1,28 +1,33 @@
-use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::io::Cursor;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use crate::results_service::ResultsService;
-use arrow::datatypes::Schema;
+use crate::flight_utils;
+use crate::hcomb_service::HCombService;
+use crate::protobuf::LogicalPlanNode;
 use arrow_flight::flight_service_server::FlightServiceServer;
 use arrow_flight::{
-    flight_descriptor, flight_service_server::FlightService,
-    utils::flight_data_to_arrow_batch, Action, ActionType, Criteria, Empty, FlightData,
-    FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult,
-    SchemaResult, Ticket,
+    flight_service_server::FlightService, Action, ActionType, Criteria, Empty,
+    FlightData, FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse,
+    PutResult, SchemaResult, Ticket,
 };
-use futures::Stream;
+use datafusion::logical_plan::LogicalPlan;
+use futures::{Stream, StreamExt};
+use prost::Message;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
 #[derive(Clone)]
 pub struct FlightServiceImpl {
-    results_service: Arc<ResultsService>,
+    hcomb_service: Arc<HCombService>,
 }
 
 impl FlightServiceImpl {
-    pub fn new(results_service: Arc<ResultsService>) -> Self {
-        Self { results_service }
+    pub fn new(hcomb_service: HCombService) -> Self {
+        Self {
+            hcomb_service: Arc::new(hcomb_service),
+        }
     }
 
     pub async fn start(&self) -> tokio::task::JoinHandle<()> {
@@ -72,9 +77,18 @@ impl FlightService for FlightServiceImpl {
 
     async fn do_get(
         &self,
-        _request: Request<Ticket>,
+        request: Request<Ticket>,
     ) -> Result<Response<Self::DoGetStream>, Status> {
-        Err(Status::unimplemented("Not yet implemented"))
+        let ticket = request.into_inner().ticket;
+        let plan_node = LogicalPlanNode::decode(&mut Cursor::new(ticket))
+            .map_err(|_| Status::invalid_argument("Plan could not be parsed"))?;
+        let plan: LogicalPlan = (&plan_node)
+            .try_into()
+            .map_err(|_| Status::invalid_argument("Plan could not be converted"))?;
+        let results = self.hcomb_service.execute_query(plan).await;
+        let flights =
+            flight_utils::batches_to_flight("query0", results).map(|flt| Ok(flt));
+        Ok(Response::new(Box::pin(flights)))
     }
 
     async fn handshake(
@@ -100,35 +114,15 @@ impl FlightService for FlightServiceImpl {
 
     async fn do_put(
         &self,
-        mut request: Request<Streaming<FlightData>>,
+        request: Request<Streaming<FlightData>>,
     ) -> Result<Response<Self::DoPutStream>, Status> {
-        // the first batch is metadata
-        let header_flight_data = request.get_mut().message().await?.unwrap();
+        let (cmd, batches) = flight_utils::flight_to_batches(request.into_inner())
+            .await
+            .map_err(|e| {
+                Status::invalid_argument(format!("Invalid put request:{}", e))
+            })?;
 
-        // parse the schema
-        let schema = Arc::new(Schema::try_from(&header_flight_data).unwrap());
-        println!("Received Schema: {:?}", schema);
-
-        // unwrap query id
-        let mut query_id = String::new();
-        if let Some(desc) = header_flight_data.flight_descriptor {
-            if desc.r#type == flight_descriptor::DescriptorType::Cmd as i32 {
-                query_id = String::from_utf8(desc.cmd).unwrap_or(String::new());
-            }
-        }
-        if query_id.is_empty() {
-            return Err(Status::invalid_argument(
-                "FlightDescriptor should containe a Cmd with the ut8 encoding of the query_id",
-            ));
-        }
-
-        while let Some(flight_data) = request.get_mut().message().await? {
-            let batch = flight_data_to_arrow_batch(&flight_data, Arc::clone(&schema))
-                .unwrap()
-                .unwrap();
-            self.results_service.add_result(&query_id, batch);
-        }
-        self.results_service.task_finished(&query_id);
+        self.hcomb_service.add_results(&cmd, batches).await;
         let output = futures::stream::empty();
         Ok(Response::new(Box::pin(output) as Self::DoPutStream))
     }

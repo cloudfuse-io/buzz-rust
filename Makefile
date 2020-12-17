@@ -31,9 +31,12 @@ package-flight-server:
 		--target export-stage \
 		.
 
-integ-buzz:
-	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.buzz.yml build
-	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.buzz.yml up
+integ: 
+	cd code; cargo run --bin integ
+	
+docker-integ:
+	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml build
+	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml up --abort-on-container-exit
 
 example-df:
 	cd code; RUST_BACKTRACE=1 cargo run --example df_s3

@@ -1,7 +1,14 @@
+use chrono::Utc;
+use std::sync::Arc;
+
 use crate::catalog::Catalog;
-use crate::query::BuzzStep;
+use crate::datasource::{ResultTable, StaticCatalogTable};
+use crate::error::Result;
+use crate::query::{BuzzStep, BuzzStepType};
+use datafusion::error::DataFusionError;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::LogicalPlan;
+use futures::future::{BoxFuture, FutureExt};
 
 pub struct QueryPlanner {
     /// This execution context is not meant to run queries but only to plan them.
@@ -32,11 +39,98 @@ impl QueryPlanner {
     }
 
     pub async fn plan(
-        &self,
+        &mut self,
         query_steps: Vec<BuzzStep>,
         nb_hcomb: i16,
-    ) -> DistributedPlan {
-        DistributedPlan { zones: vec![] }
+    ) -> Result<DistributedPlan> {
+        // TODO lift the limitation inforced by the following assert:
+        assert!(
+            query_steps.len() == 2
+                && query_steps[0].step_type == BuzzStepType::HBee
+                && query_steps[1].step_type == BuzzStepType::HComb,
+            "You must have one exactly one hbee step followed by one hcomb step for now"
+        );
+        let bee_df = self.execution_context.sql(&query_steps[0].sql)?;
+        let bee_plan = bee_df.to_logical_plan();
+        let bee_output_schema = bee_plan.schema().as_ref().clone();
+        let bee_plans = self.split(&bee_plan).await?;
+
+        // register a handle to the intermediate table on the context
+        let result_table = ResultTable::new(
+            format!("{}-{}", &query_steps[0].name, Utc::now().to_rfc3339()),
+            bee_output_schema.into(),
+        );
+        self.execution_context
+            .register_table(&query_steps[0].name, Box::new(result_table));
+
+        // run the hcomb part of the query
+        let hcomb_df = self.execution_context.sql(&query_steps[1].sql)?;
+        let hcomb_plan = hcomb_df.to_logical_plan();
+
+        // TODO check that the source is a valid hcomb provider
+
+        println!("=> Plan result: hcomb_plan =\n{:?}", hcomb_plan);
+
+        // init plans for each zone
+        let mut zones = (0..nb_hcomb)
+            .map(|_i| ZonePlan {
+                hbee: vec![],
+                hcomb: hcomb_plan.clone(),
+            })
+            .collect::<Vec<_>>();
+        // distribute hbee plans between zones
+        bee_plans
+            .into_iter()
+            .enumerate()
+            .for_each(|(i, bee_plan)| zones[i % (nb_hcomb as usize)].hbee.push(bee_plan));
+
+        Ok(DistributedPlan { zones: zones })
+    }
+
+    /// takes a plan and if the source is a catalog, it distibutes the files accordingly
+    /// each logical is a good workload for a given bee
+    fn split<'a>(
+        &'a mut self,
+        plan: &'a LogicalPlan,
+    ) -> BoxFuture<'a, Result<Vec<LogicalPlan>>> {
+        async move {
+            let new_inputs = datafusion::optimizer::utils::inputs(&plan);
+            if new_inputs.len() > 1 {
+                Err(DataFusionError::NotImplemented(
+                    "Operations with more than one inputs are not supported".to_owned(),
+                )
+                .into())
+            } else if new_inputs.len() == 1 {
+                self.split(new_inputs[0]).await
+            } else if let Some(catalog_table) = Self::as_catalog(&plan) {
+                catalog_table
+                    .split()
+                    .iter()
+                    .map(|item| {
+                        Ok(self
+                            .execution_context
+                            .read_table(Arc::clone(item))?
+                            .to_logical_plan())
+                    })
+                    .collect()
+            } else {
+                Ok(vec![plan.clone()])
+            }
+        }
+        .boxed() // recursion in an `async fn` requires boxing
+    }
+
+    fn as_catalog<'a>(plan: &'a LogicalPlan) -> Option<&'a StaticCatalogTable> {
+        if let LogicalPlan::TableScan {
+            // TODO matching not required after PR #8910 goes through
+            source: table,
+            ..
+        } = plan
+        {
+            table.as_any().downcast_ref::<StaticCatalogTable>()
+        } else {
+            None
+        }
     }
 }
 

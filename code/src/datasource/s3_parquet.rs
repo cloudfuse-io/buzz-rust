@@ -6,6 +6,7 @@ use arrow::datatypes::*;
 use crate::catalog::SizedFile;
 use crate::execution_plan::ParquetExec;
 use crate::s3::{self, S3FileAsync};
+use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
 use datafusion::physical_plan::ExecutionPlan;
@@ -99,5 +100,9 @@ impl TableProvider for ParquetTable {
             batch_size,
             Arc::clone(&self.schema),
         )?))
+    }
+
+    fn statistics(&self) -> Statistics {
+        Statistics::default()
     }
 }

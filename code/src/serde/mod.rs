@@ -9,7 +9,7 @@ mod tests {
     use crate::catalog::SizedFile;
     use crate::datasource::ParquetTable;
     use crate::protobuf;
-    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
     use datafusion::execution::context::ExecutionContext;
     use datafusion::logical_plan::LogicalPlan;
     use datafusion::logical_plan::{col, count};
@@ -59,10 +59,14 @@ mod tests {
     fn mock_table() -> ParquetTable {
         let schema = Schema::new(vec![
             Field::new("id", DataType::Int32, false),
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
+            Field::new("name", DataType::Utf8, false),
             Field::new("state", DataType::Utf8, false),
-            Field::new("salary", DataType::Int32, false),
+            Field::new("salary", DataType::Float64, false),
+            Field::new(
+                "last_login",
+                DataType::Timestamp(TimeUnit::Millisecond, None),
+                false,
+            ),
         ]);
 
         ParquetTable::new(

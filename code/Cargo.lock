@@ -86,8 +86,9 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 [[package]]
 name = "arrow"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
+source = "git+https://github.com/apache/arrow?rev=6fafedf#6fafedf784c531c22d12303f53fb1adfabb85355"
 dependencies = [
+ "cfg_aliases",
  "chrono",
  "csv",
  "flatbuffers",
@@ -107,7 +108,7 @@ dependencies = [
 [[package]]
 name = "arrow-flight"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
+source = "git+https://github.com/apache/arrow?rev=6fafedf#6fafedf784c531c22d12303f53fb1adfabb85355"
 dependencies = [
  "arrow",
  "bytes 0.5.6",
@@ -279,8 +280,10 @@ dependencies = [
  "arrow",
  "arrow-flight",
  "async-trait",
+ "chrono",
  "datafusion",
  "futures 0.3.8",
+ "hyper 0.13.9",
  "lambda_runtime",
  "parquet",
  "pin-project 1.0.2",
@@ -338,6 +341,12 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "cfg_aliases"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 
 [[package]]
 name = "chrono"
@@ -582,7 +591,7 @@ dependencies = [
 [[package]]
 name = "datafusion"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
+source = "git+https://github.com/apache/arrow?rev=6fafedf#6fafedf784c531c22d12303f53fb1adfabb85355"
 dependencies = [
  "ahash 0.6.1",
  "arrow",
@@ -1616,10 +1625,10 @@ dependencies = [
 [[package]]
 name = "parquet"
 version = "3.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow?rev=bc5b74#bc5b74be2475ac7c7b46086f78482b739e47ee32"
+source = "git+https://github.com/apache/arrow?rev=6fafedf#6fafedf784c531c22d12303f53fb1adfabb85355"
 dependencies = [
  "arrow",
- "base64 0.13.0",
+ "base64 0.11.0",
  "brotli",
  "byteorder",
  "chrono",

@@ -42,7 +42,8 @@ RUN zip ${BIN_NAME}.zip bootstrap
 # A runtime container
 
 FROM scratch as runtime-stage
-EXPOSE 50051
+ARG PORT
+EXPOSE ${PORT}
 COPY --from=build-stage /buildspace/exec-static /app
 COPY --from=build-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 

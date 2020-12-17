@@ -118,7 +118,7 @@ impl Display for BuzzError {
                 write!(f, "This feature is not implemented: {}", desc)
             }
             BuzzError::Internal(ref desc) => {
-                write!(f, "Internal error: {}. This was likely caused by a bug in BuzzError's \
+                write!(f, "Internal error: {}. This was likely caused by a bug in Buzz's \
                     code and we would welcome that you file an bug report in our issue tracker", desc)
             }
             BuzzError::Plan(ref desc) => {
