@@ -34,7 +34,7 @@ impl FlightServiceImpl {
         let addr = "0.0.0.0:50051".parse().unwrap();
         let svc = FlightServiceServer::new(self.clone());
         tokio::spawn(async move {
-            println!("Listening on {:?}", addr);
+            println!("[hcomb] Listening on {:?}", addr);
             Server::builder()
                 .add_service(svc)
                 .serve(addr)

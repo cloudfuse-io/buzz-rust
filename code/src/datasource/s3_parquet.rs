@@ -1,11 +1,10 @@
 use std::any::Any;
-use std::sync::Arc;
-
-use arrow::datatypes::*;
+use std::sync::{Arc, Mutex};
 
 use crate::catalog::SizedFile;
 use crate::execution_plan::ParquetExec;
 use crate::s3::{self, S3FileAsync};
+use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
@@ -18,7 +17,7 @@ pub struct ParquetTable {
     bucket: String,
     files: Vec<SizedFile>,
     schema: SchemaRef,
-    downloads: Option<Vec<S3FileAsync>>,
+    downloads: Mutex<Option<Vec<S3FileAsync>>>,
 }
 
 impl ParquetTable {
@@ -34,11 +33,12 @@ impl ParquetTable {
             region,
             bucket,
             files,
-            downloads: None,
+            downloads: Mutex::new(None),
         }
     }
 
-    pub async fn start_download(&mut self) {
+    pub async fn start_download(&self) {
+        println!("[hbee] start_download");
         // TODO mutualize client even further?
         let client = s3::new_client(&self.region);
 
@@ -57,8 +57,7 @@ impl ParquetTable {
             .collect::<FuturesOrdered<_>>()
             .collect::<Vec<_>>()
             .await;
-
-        self.downloads = Some(downloads);
+        *(self.downloads.lock().unwrap()) = Some(downloads);
     }
 
     pub fn region(&self) -> &str {
@@ -88,8 +87,9 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
+        let downloads = self.downloads.lock().unwrap();
         let files =
-            self.downloads
+            downloads
                 .as_ref()
                 .ok_or(datafusion::error::DataFusionError::Plan(
                     "Download should be started before execution".to_owned(),

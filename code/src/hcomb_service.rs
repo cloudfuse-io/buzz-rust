@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use crate::datasource::ResultTable;
 use crate::error::Result;
+use crate::internal_err;
 use crate::results_service::ResultsService;
-use crate::{internal_err, not_impl_err};
+use crate::utils::find_table;
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::logical_plan::LogicalPlan;
-use datafusion::physical_plan;
 use datafusion::physical_plan::{
     merge::MergeExec, ExecutionPlan, SendableRecordBatchStream,
 };
@@ -33,8 +33,8 @@ impl HCombService {
         &self,
         plan: LogicalPlan,
     ) -> Result<SendableRecordBatchStream> {
-        println!("HCombService.execute_query()\n{:?}", plan);
-        let result_table = Self::find_result_table(&plan)?;
+        println!("[hcomb] execute query...");
+        let result_table = find_table::<ResultTable>(&plan)?;
         let batch_stream = self
             .results_service
             .new_query(result_table.query_id().to_owned(), result_table.nb_hbee());
@@ -62,33 +62,8 @@ impl HCombService {
         let mut batches = Box::pin(batches);
         while let Some(batch) = batches.next().await {
             self.results_service.add_result(&query_id, batch);
+            println!("self.results_service.add_result(&query_id, batch);");
         }
         self.results_service.task_finished(&query_id);
-    }
-
-    fn find_result_table(plan: &LogicalPlan) -> Result<&ResultTable> {
-        let new_inputs = datafusion::optimizer::utils::inputs(&plan);
-        if new_inputs.len() > 1 {
-            Err(not_impl_err!(
-                "Operations with more than one inputs are not supported",
-            ))
-        } else if new_inputs.len() == 1 {
-            // recurse
-            Self::find_result_table(new_inputs[0])
-        } else {
-            if let Some(result_table) = Self::as_result_table(&plan) {
-                Ok(result_table)
-            } else {
-                Err(not_impl_err!("Expected root to be a ResultTable",))
-            }
-        }
-    }
-
-    fn as_result_table<'a>(plan: &'a LogicalPlan) -> Option<&'a ResultTable> {
-        if let LogicalPlan::TableScan { source: table, .. } = plan {
-            table.as_any().downcast_ref::<ResultTable>()
-        } else {
-            None
-        }
     }
 }

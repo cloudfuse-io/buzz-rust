@@ -1,9 +1,7 @@
 use crate::query::HCombCapacity;
 use async_trait::async_trait;
 
-pub struct HCombAddress {
-    pub endpoint: String,
-}
+pub type HCombAddress = String;
 
 #[async_trait]
 pub trait HCombManager {
@@ -19,9 +17,7 @@ pub struct TestHCombManager {
 impl HCombManager for TestHCombManager {
     async fn find_or_start(&self, capactity: &HCombCapacity) -> Vec<HCombAddress> {
         (0..capactity.zones as usize)
-            .map(|i| HCombAddress {
-                endpoint: format!("http://{}:50051", self.domain),
-            })
+            .map(|i| format!("http://{}:50051", self.domain))
             .collect()
     }
 }

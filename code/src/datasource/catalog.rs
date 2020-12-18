@@ -2,6 +2,7 @@ use std::any::Any;
 use std::sync::Arc;
 
 use crate::catalog::SizedFile;
+use crate::datasource::ParquetTable;
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
@@ -37,12 +38,12 @@ impl StaticCatalogTable {
         self.files
             .iter()
             .map(|file| -> Arc<dyn TableProvider + Send + Sync> {
-                Arc::new(StaticCatalogTable {
-                    schema: self.schema().clone(),
-                    region: self.region.clone(),
-                    bucket: self.bucket.clone(),
-                    files: vec![file.clone()],
-                })
+                Arc::new(ParquetTable::new(
+                    self.region.clone(),
+                    self.bucket.clone(),
+                    vec![file.clone()],
+                    Arc::clone(&self.schema),
+                ))
             })
             .collect::<Vec<_>>()
     }

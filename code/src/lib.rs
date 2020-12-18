@@ -1,5 +1,4 @@
 pub mod catalog;
-pub mod dataframe_ops;
 pub mod datasource;
 pub mod error;
 pub mod execution_plan;
@@ -20,6 +19,7 @@ pub mod range_cache;
 pub mod results_service;
 pub mod s3;
 pub mod serde;
+pub mod utils;
 
 // include the generated protobuf source as a submodule
 #[allow(clippy::all)]

@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::catalog::Catalog;
 use crate::error::Result;
 use crate::hbee_scheduler::HBeeScheduler;
@@ -37,6 +39,7 @@ impl FuseService {
     }
 
     pub async fn run(&mut self, query: BuzzQuery) -> Result<()> {
+        let start = Instant::now();
         let addresses_future = self.hcomb_manager.find_or_start(&query.capacity);
         let plan_future = self.query_planner.plan(query.steps, query.capacity.zones);
         let (addresses, plan) = join!(addresses_future, plan_future);
@@ -57,6 +60,7 @@ impl FuseService {
         // connect to the hcombs to init the query and get result handle
         // TODO connect in //
         let mut result_streams = vec![];
+        println!("[fuse] schedule hcombs");
         for i in 0..plan.zones.len() {
             let batch_stream = self
                 .hcomb_scheduler
@@ -72,6 +76,7 @@ impl FuseService {
         // TODO start sending to combs as soon as they are ready
         // TODO alternate between combs?
         // TODO schedule multiple in //
+        println!("[fuse] schedule hbees");
         for i in 0..plan.zones.len() {
             for j in 0..plan.zones[i].hbee.len() {
                 self.hbee_scheduler
@@ -81,11 +86,13 @@ impl FuseService {
         }
 
         // wait for hcombs to collect all the results and desplay them comb by comb
+        println!("[fuse] collect hcombs");
         for result_stream in result_streams {
             let result: Vec<RecordBatch> = result_stream.collect::<Vec<_>>().await;
             pretty::print_batches(&result).unwrap();
         }
 
+        println!("[fuse] run duration: {}", start.elapsed().as_millis());
         Ok(())
     }
 }

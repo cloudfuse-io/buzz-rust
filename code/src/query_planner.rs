@@ -52,9 +52,9 @@ impl QueryPlanner {
         );
 
         let bee_df = self.execution_context.sql(&query_steps[0].sql)?;
-        let bee_plan = bee_df.to_logical_plan();
-        let bee_output_schema = bee_plan.schema().as_ref().clone();
-        let bee_plans = self.split(&bee_plan).await?;
+        let src_bee_plan = bee_df.to_logical_plan();
+        let bee_output_schema = src_bee_plan.schema().as_ref().clone();
+        let bee_plans = self.split(&src_bee_plan).await?;
 
         // register a handle to the intermediate table on the context
         let result_table = ResultTable::new(
@@ -90,8 +90,10 @@ impl QueryPlanner {
         Ok(DistributedPlan { zones: zones })
     }
 
-    /// takes a plan and if the source is a catalog, it distibutes the files accordingly
-    /// each logical is a good workload for a given bee
+    /// Takes a plan and if the source is a catalog, it distibutes the files accordingly
+    /// Each resulting logical plan is a good workload for a given bee
+    /// Only works with linear plans (only one datasource)
+    /// TODO could this be implem as an optim rule?
     fn split<'a>(
         &'a mut self,
         plan: &'a LogicalPlan,
@@ -103,7 +105,11 @@ impl QueryPlanner {
                     "Operations with more than one inputs are not supported",
                 ))
             } else if new_inputs.len() == 1 {
-                self.split(new_inputs[0]).await
+                let exprs = datafusion::optimizer::utils::expressions(&plan);
+                let input = self.split(new_inputs[0]).await?;
+                Ok(vec![datafusion::optimizer::utils::from_plan(
+                    plan, &exprs, &input,
+                )?])
             } else if let Some(catalog_table) = Self::as_catalog(&plan) {
                 catalog_table
                     .split()

@@ -280,6 +280,7 @@ dependencies = [
  "arrow",
  "arrow-flight",
  "async-trait",
+ "base64 0.13.0",
  "chrono",
  "datafusion",
  "futures 0.3.8",

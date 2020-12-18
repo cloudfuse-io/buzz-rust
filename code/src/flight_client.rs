@@ -25,7 +25,7 @@ pub async fn call_do_put(
 
     let request = tonic::Request::new(input);
 
-    let mut client = FlightServiceClient::connect(address.endpoint.clone()).await?;
+    let mut client = FlightServiceClient::connect(address.clone()).await?;
     // wait for the response to be complete but don't do anything with it
     client
         .do_put(request)
@@ -43,7 +43,7 @@ pub async fn call_do_get(
     plan: LogicalPlan,
 ) -> Result<Pin<Box<dyn Stream<Item = RecordBatch>>>, Box<dyn Error>> {
     // Create Flight client
-    let mut client = FlightServiceClient::connect(address.endpoint.clone()).await?;
+    let mut client = FlightServiceClient::connect(address.clone()).await?;
 
     let proto_plan: LogicalPlanNode = (&plan).try_into()?;
 
