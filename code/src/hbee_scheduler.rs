@@ -19,6 +19,7 @@ pub struct TestHBeeScheduler {
 #[async_trait]
 impl HBeeScheduler for TestHBeeScheduler {
     async fn schedule(&self, address: &HCombAddress, plan: LogicalPlan) -> Result<()> {
+        println!("TestHBeeScheduler.schedule()");
         let client = Client::new();
 
         let req = Request::builder()

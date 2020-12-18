@@ -79,19 +79,25 @@ impl FlightService for FlightServiceImpl {
         &self,
         request: Request<Ticket>,
     ) -> Result<Response<Self::DoGetStream>, Status> {
+        // parse request
         let ticket = request.into_inner().ticket;
-        let plan_node = LogicalPlanNode::decode(&mut Cursor::new(ticket))
-            .map_err(|_| Status::invalid_argument("Plan could not be parsed"))?;
-        let plan: LogicalPlan = (&plan_node)
-            .try_into()
-            .map_err(|_| Status::invalid_argument("Plan could not be converted"))?;
+        let plan_node =
+            LogicalPlanNode::decode(&mut Cursor::new(ticket)).map_err(|_| {
+                Status::invalid_argument("Plan could not be parsed from bytes")
+            })?;
+        let plan: LogicalPlan = (&plan_node).try_into().map_err(|_| {
+            Status::invalid_argument("Plan could not be converted from proto")
+        })?;
+        // execute query
         let results = self
             .hcomb_service
             .execute_query(plan)
             .await
             .map_err(|e| Status::internal(format!("Query failed: {}", e)))?;
-        let flights =
-            flight_utils::batches_to_flight("query0", results).map(|flt| Ok(flt));
+        // serialize response
+        let flights = flight_utils::batches_to_flight("query0", results)
+            .map_err(|_| Status::internal("Plan could not be converted into flight"))?
+            .map(|flt| Ok(flt));
         Ok(Response::new(Box::pin(flights)))
     }
 

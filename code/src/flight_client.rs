@@ -9,13 +9,14 @@ use arrow::record_batch::RecordBatch;
 use arrow_flight::flight_service_client::FlightServiceClient;
 use arrow_flight::Ticket;
 use datafusion::logical_plan::LogicalPlan;
+use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::Stream;
 use futures::StreamExt;
 use prost::Message;
 
 pub async fn call_do_put(
     address: &HCombAddress,
-    results: Vec<RecordBatch>,
+    results: SendableRecordBatchStream,
 ) -> Result<(), Box<dyn Error>> {
     // Create Flight client after delay, to leave time for the server to boot
     tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
@@ -51,10 +52,10 @@ pub async fn call_do_get(
 
     // Call do_get to execute a SQL query and receive results
     let request = tonic::Request::new(Ticket { ticket: buf });
-
+    println!("before do_get");
     let stream = client.do_get(request).await?.into_inner();
-
+    println!("before flight_to_batches");
     let (_, record_batch_stream) = flight_utils::flight_to_batches(stream).await?;
-
+    println!("after flight_to_batches");
     Ok(Box::pin(record_batch_stream))
 }

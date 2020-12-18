@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use crate::datasource::ResultTable;
 use crate::error::Result;
-use crate::not_impl_err;
 use crate::results_service::ResultsService;
+use crate::{internal_err, not_impl_err};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::logical_plan::LogicalPlan;
 use datafusion::physical_plan;
+use datafusion::physical_plan::{
+    merge::MergeExec, ExecutionPlan, SendableRecordBatchStream,
+};
 use futures::{Stream, StreamExt};
 
 pub struct HCombService {
@@ -26,7 +29,10 @@ impl HCombService {
         }
     }
 
-    pub async fn execute_query(&self, plan: LogicalPlan) -> Result<Vec<RecordBatch>> {
+    pub async fn execute_query(
+        &self,
+        plan: LogicalPlan,
+    ) -> Result<SendableRecordBatchStream> {
         println!("HCombService.execute_query()\n{:?}", plan);
         let result_table = Self::find_result_table(&plan)?;
         let batch_stream = self
@@ -34,8 +40,18 @@ impl HCombService {
             .new_query(result_table.query_id().to_owned(), result_table.nb_hbee());
         result_table.set(Box::pin(batch_stream));
         let physical_plan = self.execution_context.create_physical_plan(&plan).unwrap();
-        let result_batches = physical_plan::collect(physical_plan).await?;
-        Ok(result_batches)
+
+        // if necessary, merge the partitions
+        match physical_plan.output_partitioning().partition_count() {
+            0 => Err(internal_err!("Should have at least one partition")),
+            1 => physical_plan.execute(0).await.map_err(|e| e.into()),
+            _ => {
+                // merge into a single partition
+                let physical_plan = MergeExec::new(physical_plan.clone());
+                assert_eq!(1, physical_plan.output_partitioning().partition_count());
+                physical_plan.execute(0).await.map_err(|e| e.into())
+            }
+        }
     }
 
     pub async fn add_results(
