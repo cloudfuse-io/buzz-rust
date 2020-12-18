@@ -2,7 +2,6 @@ use std::convert::TryFrom;
 use std::error::Error;
 use std::sync::Arc;
 
-use crate::error::BuzzError;
 use crate::internal_err;
 use arrow::datatypes::Schema;
 use arrow::ipc::writer::IpcWriteOptions;
@@ -34,25 +33,34 @@ pub async fn flight_to_batches(
 }
 
 /// Convert RecordBatches and a cmd to a stream of flights
-pub fn batches_to_flight(
+pub async fn batches_to_flight(
     cmd: &str,
     batches: SendableRecordBatchStream,
 ) -> Result<impl Stream<Item = FlightData> + Send + Sync, Box<dyn Error>> {
     // TODO are all this IpcWriteOptions creations a problem?
+    let (sender, result) = tokio::sync::mpsc::unbounded_channel::<FlightData>();
 
     // create an initial FlightData message that sends schema
     let options = IpcWriteOptions::default();
     let mut flight_schema = flight_data_from_arrow_schema(&batches.schema(), &options);
-    flight_schema.flight_descriptor = cmd_to_descriptor(cmd);
-    let stream_head = futures::stream::iter(vec![flight_schema]);
+    flight_schema.flight_descriptor = cmd_to_descriptor(&cmd);
+    sender.send(flight_schema)?;
 
-    // then stream the rest
-    let stream_body = batches.flat_map(|batch| {
-        let options = IpcWriteOptions::default();
-        futures::stream::iter(flight_data_from_arrow_batch(&batch.unwrap(), &options))
+    // use channels to make stream sync (required by tonic)
+    // TODO what happens with errors (currently all unwrapped in spawned task)
+    tokio::spawn(async move {
+        // then stream the rest
+        batches
+            .for_each(|batch| async {
+                let options = IpcWriteOptions::default();
+                flight_data_from_arrow_batch(&batch.unwrap(), &options)
+                    .into_iter()
+                    .for_each(|flight| (&sender).send(flight).unwrap());
+            })
+            .await;
     });
 
-    Ok(stream_head.chain(stream_body))
+    Ok(result)
 }
 
 fn cmd_to_descriptor(cmd: &str) -> Option<FlightDescriptor> {

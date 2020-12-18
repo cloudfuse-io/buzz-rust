@@ -96,6 +96,7 @@ impl FlightService for FlightServiceImpl {
             .map_err(|e| Status::internal(format!("Query failed: {}", e)))?;
         // serialize response
         let flights = flight_utils::batches_to_flight("query0", results)
+            .await
             .map_err(|_| Status::internal("Plan could not be converted into flight"))?
             .map(|flt| Ok(flt));
         Ok(Response::new(Box::pin(flights)))
