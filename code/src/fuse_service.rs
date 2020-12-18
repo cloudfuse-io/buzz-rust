@@ -72,7 +72,7 @@ impl FuseService {
         // TODO start sending to combs as soon as they are ready
         // TODO alternate between combs?
         // TODO schedule multiple in //
-        for i in 0..addresses.len() {
+        for i in 0..plan.zones.len() {
             for j in 0..plan.zones[i].hbee.len() {
                 self.hbee_scheduler
                     .schedule(&addresses[i], plan.zones[i].hbee[j].clone())
