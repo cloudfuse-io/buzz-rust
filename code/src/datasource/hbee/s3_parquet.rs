@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use crate::catalog::SizedFile;
+use crate::datasource::catalog::SizedFile;
 use crate::execution_plan::ParquetExec;
 use crate::s3::{self, S3FileAsync};
 use arrow::datatypes::*;

@@ -1,4 +1,4 @@
-use buzz::catalog::StaticCatalog;
+use buzz::example_catalog;
 use buzz::fuse_service::FuseService;
 use buzz::hbee_scheduler::TestHBeeScheduler;
 use buzz::hcomb_manager::TestHCombManager;
@@ -28,8 +28,7 @@ pub async fn start_fuse(
         query_planner,
     );
 
-    let catalog = StaticCatalog {};
-    service.add_catalog(&catalog);
+    service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_small());
 
     service
         .run(BuzzQuery {

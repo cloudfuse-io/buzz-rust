@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use super::{CatalogTable, SplittableTable};
-use crate::catalog::SizedFile;
+use super::{CatalogTable, SizedFile, SplittableTable};
 use crate::datasource::{HBeeTable, S3ParquetTable};
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;

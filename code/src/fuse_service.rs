@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::catalog::Catalog;
+use crate::datasource::CatalogTable;
 use crate::error::Result;
 use crate::hbee_scheduler::HBeeScheduler;
 use crate::hcomb_manager::HCombManager;
@@ -35,8 +35,8 @@ impl FuseService {
         }
     }
 
-    pub fn add_catalog(&mut self, catalog: &dyn Catalog) {
-        self.query_planner.add_catalog(catalog);
+    pub fn add_catalog(&mut self, name: &str, table: CatalogTable) {
+        self.query_planner.add_catalog(name, table);
     }
 
     pub async fn run(&mut self, query: BuzzQuery) -> Result<()> {

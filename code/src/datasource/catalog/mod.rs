@@ -8,9 +8,15 @@ use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::physical_plan::ExecutionPlan;
 
+#[derive(Clone)]
+pub struct SizedFile {
+    pub key: String,
+    pub length: u64,
+}
+
 /// A specific type of TableProvider that cannot be converted to a physical plan
 /// but can be splitted to be distributed to hbees
-pub trait SplittableTable {
+trait SplittableTable {
     fn split(&self) -> Vec<HBeeTable>;
     fn schema(&self) -> SchemaRef;
     fn statistics(&self) -> Statistics;

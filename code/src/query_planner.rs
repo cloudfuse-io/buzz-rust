@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::catalog::Catalog;
 use crate::datasource::{CatalogTable, HCombTable};
 use crate::error::Result;
 use crate::not_impl_err;
@@ -33,8 +32,8 @@ impl QueryPlanner {
         }
     }
 
-    pub fn add_catalog(&mut self, catalog: &dyn Catalog) {
-        catalog.fill(&mut self.execution_context);
+    pub fn add_catalog(&mut self, name: &str, table: CatalogTable) {
+        self.execution_context.register_table(name, Box::new(table));
     }
 
     pub async fn plan(

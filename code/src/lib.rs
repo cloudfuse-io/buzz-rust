@@ -1,6 +1,6 @@
-pub mod catalog;
 pub mod datasource;
 pub mod error;
+pub mod example_catalog;
 pub mod execution_plan;
 pub mod flight_client;
 pub mod flight_service;
