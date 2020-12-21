@@ -11,8 +11,8 @@ use datafusion::error::Result;
 use datafusion::physical_plan::ExecutionPlan;
 use futures::stream::{FuturesOrdered, StreamExt};
 
-/// Table-based representation of a `ParquetFile`.
-pub struct ParquetTable {
+/// Table-based representation of a `ParquetFile` backed by S3.
+pub struct S3ParquetTable {
     region: String,
     bucket: String,
     files: Vec<SizedFile>,
@@ -20,7 +20,7 @@ pub struct ParquetTable {
     downloads: Mutex<Option<Vec<S3FileAsync>>>,
 }
 
-impl ParquetTable {
+impl S3ParquetTable {
     /// Initialize a new `ParquetTable` from a list of s3 files and an expected schema.
     pub fn new(
         region: String,
@@ -73,7 +73,7 @@ impl ParquetTable {
     }
 }
 
-impl TableProvider for ParquetTable {
+impl TableProvider for S3ParquetTable {
     fn as_any(&self) -> &dyn Any {
         self
     }

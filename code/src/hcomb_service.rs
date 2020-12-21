@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::datasource::ResultTable;
+use crate::datasource::HCombTable;
 use crate::error::Result;
 use crate::internal_err;
 use crate::results_service::ResultsService;
@@ -36,7 +36,7 @@ impl HCombService {
         plan: LogicalPlan,
     ) -> Result<(String, SendableRecordBatchStream)> {
         println!("[hcomb] execute query...");
-        let result_table = find_table::<ResultTable>(&plan)?;
+        let result_table = find_table::<HCombTable>(&plan)?;
         let batch_stream = self
             .results_service
             .new_query(result_table.query_id().to_owned(), result_table.nb_hbee());

@@ -2,7 +2,7 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 use crate::catalog::SizedFile;
-use crate::datasource::{ParquetTable, ResultTable};
+use crate::datasource::{HBeeTable, HCombTable, S3ParquetTable};
 use crate::error::BuzzError;
 use crate::internal_err;
 use crate::protobuf;
@@ -78,7 +78,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                         .ok_or_else(|| {
                             internal_err!("Unable to convert flight data to Arrow schema")
                         })?;
-                    let provider = ParquetTable::new(
+                    let provider = S3ParquetTable::new(
                         scan_node.region.to_owned(),
                         scan_node.bucket.to_owned(),
                         scan_node
@@ -91,14 +91,14 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                             .collect(),
                         Arc::new(schema),
                     );
-                    Arc::new(provider)
+                    Arc::new(HBeeTable::new_s3_parquet(provider))
                 }
                 protobuf::logical_plan_node::Scan::Result(scan_node) => {
                     let schema: Schema = convert::schema_from_bytes(&scan_node.schema)
                         .ok_or_else(|| {
                             internal_err!("Unable to convert flight data to Arrow schema")
                         })?;
-                    let provider = ResultTable::new(
+                    let provider = HCombTable::new(
                         scan_node.query_id.to_owned(),
                         scan_node.nb_hbee as usize,
                         Arc::new(schema),

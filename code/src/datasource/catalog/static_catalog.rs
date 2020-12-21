@@ -1,15 +1,13 @@
-use std::any::Any;
 use std::sync::Arc;
 
+use super::{CatalogTable, SplittableTable};
 use crate::catalog::SizedFile;
-use crate::datasource::ParquetTable;
+use crate::datasource::{HBeeTable, S3ParquetTable};
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
-use datafusion::datasource::TableProvider;
-use datafusion::error::{DataFusionError, Result};
-use datafusion::physical_plan::ExecutionPlan;
 
 /// A catalog table that contains a static list of files.
+/// Only supports S3 parquet files for now and simply sends each file into a different hbee.
 pub struct StaticCatalogTable {
     schema: SchemaRef,
     region: String,
@@ -18,27 +16,27 @@ pub struct StaticCatalogTable {
 }
 
 impl StaticCatalogTable {
-    /// Initialize a new `StaticCatalogTable` from a schema.
     pub fn new(
         schema: SchemaRef,
         region: String,
         bucket: String,
         files: Vec<SizedFile>,
-    ) -> Self {
-        Self {
+    ) -> CatalogTable {
+        CatalogTable::new(Box::new(Self {
             schema,
             region,
             bucket,
             files,
-        }
+        }))
     }
+}
 
-    // TODO move this into a trait + add DataFusion expr
-    pub fn split(&self) -> Vec<Arc<dyn TableProvider + Send + Sync>> {
+impl SplittableTable for StaticCatalogTable {
+    fn split(&self) -> Vec<HBeeTable> {
         self.files
             .iter()
-            .map(|file| -> Arc<dyn TableProvider + Send + Sync> {
-                Arc::new(ParquetTable::new(
+            .map(|file| -> HBeeTable {
+                HBeeTable::new_s3_parquet(S3ParquetTable::new(
                     self.region.clone(),
                     self.bucket.clone(),
                     vec![file.clone()],
@@ -47,27 +45,9 @@ impl StaticCatalogTable {
             })
             .collect::<Vec<_>>()
     }
-}
-
-impl TableProvider for StaticCatalogTable {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
-
-    fn scan(
-        &self,
-        _projection: &Option<Vec<usize>>,
-        _batch_size: usize,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        Err(DataFusionError::Plan(
-            "Catalog table cannot generate an execution plan".to_owned(),
-        ))
-    }
-
     fn statistics(&self) -> Statistics {
         Statistics::default()
     }

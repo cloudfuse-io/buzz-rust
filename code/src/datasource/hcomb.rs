@@ -11,14 +11,14 @@ use datafusion::error::Result;
 use datafusion::physical_plan::ExecutionPlan;
 use futures::Stream;
 
-pub struct ResultTable {
+pub struct HCombTable {
     stream: Mutex<Option<Pin<Box<dyn Stream<Item = RecordBatch> + Send>>>>,
     query_id: String,
     nb_hbee: usize,
     schema: SchemaRef,
 }
 
-impl ResultTable {
+impl HCombTable {
     pub fn new(query_id: String, nb_hbee: usize, schema: SchemaRef) -> Self {
         Self {
             stream: Mutex::new(None),
@@ -41,7 +41,7 @@ impl ResultTable {
     }
 }
 
-impl TableProvider for ResultTable {
+impl TableProvider for HCombTable {
     fn as_any(&self) -> &dyn Any {
         self
     }

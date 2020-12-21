@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use crate::datasource::{ParquetTable, ResultTable};
+use crate::datasource::{HBeeTable, HCombTable};
 use crate::error::BuzzError;
 use crate::not_impl_err;
 use crate::protobuf;
@@ -36,30 +36,32 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
 
                 // dynamic dispatch on the TableProvider:
                 let provider = provider.as_any();
-                if provider.is::<ParquetTable>() {
-                    let parquet_table = provider.downcast_ref::<ParquetTable>().unwrap();
-
-                    node.scan = Some(protobuf::logical_plan_node::Scan::S3Parquet(
-                        protobuf::S3ParquetScanNode {
-                            region: parquet_table.region().to_owned(),
-                            bucket: parquet_table.bucket().to_owned(),
-                            files: parquet_table
-                                .files()
-                                .iter()
-                                .map(|sized_file| protobuf::SizedFile {
-                                    key: sized_file.key.to_owned(),
-                                    length: sized_file.length,
-                                })
-                                .collect(),
-                            projection,
-                            schema: schema.ipc_message,
-                        },
-                    ));
-                } else if provider.is::<ResultTable>() {
-                    let result_table = provider.downcast_ref::<ResultTable>().unwrap();
-
+                if provider.is::<HBeeTable>() {
+                    let hbee_table = provider.downcast_ref::<HBeeTable>().unwrap();
+                    node.scan = match hbee_table {
+                        HBeeTable::S3Parquet(table) => {
+                            Some(protobuf::logical_plan_node::Scan::S3Parquet(
+                                protobuf::S3ParquetScanNode {
+                                    region: table.region().to_owned(),
+                                    bucket: table.bucket().to_owned(),
+                                    files: table
+                                        .files()
+                                        .iter()
+                                        .map(|sized_file| protobuf::SizedFile {
+                                            key: sized_file.key.to_owned(),
+                                            length: sized_file.length,
+                                        })
+                                        .collect(),
+                                    projection,
+                                    schema: schema.ipc_message,
+                                },
+                            ))
+                        }
+                    }
+                } else if provider.is::<HCombTable>() {
+                    let result_table = provider.downcast_ref::<HCombTable>().unwrap();
                     node.scan = Some(protobuf::logical_plan_node::Scan::Result(
-                        protobuf::ResultScanNode {
+                        protobuf::HCombScanNode {
                             query_id: result_table.query_id().to_owned(),
                             nb_hbee: result_table.nb_hbee() as u32,
                             projection,

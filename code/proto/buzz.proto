@@ -77,7 +77,7 @@ message LogicalPlanNode {
 
   oneof scan {
     S3ParquetScanNode s3_parquet = 10;
-    ResultScanNode result = 11;
+    HCombScanNode result = 11;
   }
 
   ProjectionNode projection = 20;
@@ -103,7 +103,7 @@ message S3ParquetScanNode {
   bytes schema = 5;
 }
 
-message ResultScanNode {
+message HCombScanNode {
   string query_id = 1;
   uint32 nb_hbee = 2;
   ProjectionColumns projection = 4;

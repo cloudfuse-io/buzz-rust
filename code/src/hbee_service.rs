@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::datasource::ParquetTable;
+use crate::datasource::HBeeTable;
 use crate::error::Result;
 use crate::flight_client;
 use crate::hcomb_manager::HCombAddress;
@@ -36,8 +36,8 @@ impl HBeeService {
         println!("[hbee] execute query");
         let start = Instant::now();
         let plan = self.execution_context.optimize(&plan)?;
-        let parquet_table = utils::find_table::<ParquetTable>(&plan)?;
-        parquet_table.start_download().await;
+        let hbee_table = utils::find_table::<HBeeTable>(&plan)?;
+        hbee_table.start_download().await;
         let physical_plan = self.execution_context.create_physical_plan(&plan)?;
         // if necessary, merge the partitions
         println!(

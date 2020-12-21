@@ -7,7 +7,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::catalog::SizedFile;
-    use crate::datasource::ParquetTable;
+    use crate::datasource::S3ParquetTable;
     use crate::protobuf;
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
     use datafusion::execution::context::ExecutionContext;
@@ -56,7 +56,7 @@ mod tests {
         Ok(())
     }
 
-    fn mock_table() -> ParquetTable {
+    fn mock_table() -> S3ParquetTable {
         let schema = Schema::new(vec![
             Field::new("id", DataType::Int32, false),
             Field::new("name", DataType::Utf8, false),
@@ -69,7 +69,7 @@ mod tests {
             ),
         ]);
 
-        ParquetTable::new(
+        S3ParquetTable::new(
             "south-pole-1".to_owned(),
             "santa".to_owned(),
             vec![SizedFile {

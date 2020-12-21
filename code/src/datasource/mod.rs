@@ -1,7 +1,7 @@
 mod catalog;
-mod result;
-mod s3_parquet;
+mod hbee;
+mod hcomb;
 
-pub use catalog::StaticCatalogTable;
-pub use result::ResultTable;
-pub use s3_parquet::ParquetTable;
+pub use catalog::{static_catalog::StaticCatalogTable, CatalogTable};
+pub use hbee::{s3_parquet::S3ParquetTable, HBeeTable};
+pub use hcomb::HCombTable;

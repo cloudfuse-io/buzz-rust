@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::catalog::Catalog;
-use crate::datasource::{ResultTable, StaticCatalogTable};
+use crate::datasource::{CatalogTable, HCombTable};
 use crate::error::Result;
 use crate::not_impl_err;
 use crate::query::{BuzzStep, BuzzStepType};
@@ -58,7 +58,7 @@ impl QueryPlanner {
 
         // register a handle to the intermediate table on the context
         let result_table =
-            ResultTable::new(query_id, bee_plans.len(), bee_output_schema.into());
+            HCombTable::new(query_id, bee_plans.len(), bee_output_schema.into());
         self.execution_context
             .register_table(&query_steps[0].name, Box::new(result_table));
 
@@ -117,11 +117,11 @@ impl QueryPlanner {
             } else if let Some(catalog_table) = Self::as_catalog(&plan) {
                 catalog_table
                     .split()
-                    .iter()
+                    .into_iter()
                     .map(|item| {
                         Ok(self
                             .execution_context
-                            .read_table(Arc::clone(item))?
+                            .read_table(Arc::new(item))?
                             .to_logical_plan())
                     })
                     .collect()
@@ -132,9 +132,9 @@ impl QueryPlanner {
         .boxed() // recursion in an `async fn` requires boxing
     }
 
-    fn as_catalog<'a>(plan: &'a LogicalPlan) -> Option<&'a StaticCatalogTable> {
+    fn as_catalog<'a>(plan: &'a LogicalPlan) -> Option<&'a CatalogTable> {
         if let LogicalPlan::TableScan { source: table, .. } = plan {
-            table.as_any().downcast_ref::<StaticCatalogTable>()
+            table.as_any().downcast_ref::<CatalogTable>()
         } else {
             None
         }
