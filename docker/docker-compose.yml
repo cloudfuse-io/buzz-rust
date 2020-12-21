@@ -11,10 +11,10 @@ services:
     environment: 
       - RUST_BACKTRACE=1
     depends_on:
-      - hcomb0
+      - hcomb
       - hbee
 
-  hcomb0:
+  hcomb:
     build:
       context: ../
       dockerfile: ./docker/Dockerfile

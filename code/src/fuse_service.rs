@@ -68,11 +68,7 @@ impl FuseService {
         for i in 0..plan.zones.len() {
             let batch_stream = self
                 .hcomb_scheduler
-                .schedule(
-                    &addresses[i],
-                    plan.zones[i].hbee.len(),
-                    plan.zones[i].hcomb.clone(),
-                )
+                .schedule(&addresses[i], plan.zones[i].hcomb.clone())
                 .await?;
             result_streams.push(batch_stream);
         }

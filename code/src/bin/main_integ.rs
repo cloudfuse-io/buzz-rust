@@ -5,7 +5,7 @@ mod main_hcomb;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::select! {
-        res = main_fuse::start_fuse() => {
+        res = main_fuse::start_fuse("localhost", "localhost") => {
             println!("fuse result: {:?}", res);
         }
         res = main_hbee::start_hbee_server() => {

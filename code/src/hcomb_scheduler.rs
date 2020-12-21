@@ -15,7 +15,6 @@ pub trait HCombScheduler {
     async fn schedule(
         &self,
         address: &HCombAddress,
-        hbee_count: usize,
         plan: LogicalPlan,
     ) -> Result<Pin<Box<dyn Stream<Item = RecordBatch>>>>;
 }
@@ -27,7 +26,6 @@ impl HCombScheduler for HttpHCombScheduler {
     async fn schedule(
         &self,
         address: &HCombAddress,
-        hbee_count: usize,
         plan: LogicalPlan,
     ) -> Result<Pin<Box<dyn Stream<Item = RecordBatch>>>> {
         flight_client::call_do_get(address, plan)
