@@ -92,12 +92,10 @@ impl HBeeScheduler for TestHBeeScheduler {
             .body(Body::from(req_body))
             .map_err(|_| internal_err!("failed to build hbee request"))?;
 
-        let res = client
+        client
             .request(req)
             .await
             .map_err(|e| internal_err!("hbee scheduling failed: {}", e))?;
-
-        println!("Response status from hbee: {}", res.status());
 
         Ok(())
     }

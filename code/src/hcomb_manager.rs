@@ -16,9 +16,8 @@ pub struct TestHCombManager {
 #[async_trait]
 impl HCombManager for TestHCombManager {
     async fn find_or_start(&self, capactity: &HCombCapacity) -> Vec<HCombAddress> {
-        (0..capactity.zones as usize)
-            .map(|i| format!("http://{}:50051", self.domain))
-            .collect()
+        assert_eq!(capactity.zones, 1, "Only single zone supported for now");
+        vec![format!("http://{}:50051", self.domain)]
     }
 }
 
