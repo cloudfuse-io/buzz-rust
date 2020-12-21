@@ -24,10 +24,16 @@ impl Catalog for StaticCatalog {
                 Self::nyc_taxi(),
                 "eu-west-1".to_owned(),
                 "cloudfuse-taxi-data".to_owned(),
-                vec![SizedFile {
-                    key: "raw_small/2009/01/data.parquet".to_owned(),
-                    length: 27301328,
-                }],
+                vec![
+                    SizedFile {
+                        key: "raw_small/2009/01/data.parquet".to_owned(),
+                        length: 27301328,
+                    },
+                    SizedFile {
+                        key: "raw_small/2009/01/data.parquet".to_owned(),
+                        length: 27301328,
+                    },
+                ],
             )),
         );
     }

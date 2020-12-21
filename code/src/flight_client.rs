@@ -15,13 +15,14 @@ use futures::StreamExt;
 use prost::Message;
 
 pub async fn call_do_put(
+    query_id: String,
     address: &HCombAddress,
     results: SendableRecordBatchStream,
 ) -> Result<(), Box<dyn Error>> {
     // Create Flight client after delay, to leave time for the server to boot
     tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
 
-    let input = flight_utils::batches_to_flight("test0", results).await?;
+    let input = flight_utils::batches_to_flight(&query_id, results).await?;
 
     let request = tonic::Request::new(input);
 

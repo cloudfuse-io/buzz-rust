@@ -9,6 +9,7 @@ use crate::query::BuzzQuery;
 use crate::query_planner::QueryPlanner;
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
+use chrono::Utc;
 use futures::StreamExt;
 use tokio::join;
 
@@ -41,7 +42,10 @@ impl FuseService {
     pub async fn run(&mut self, query: BuzzQuery) -> Result<()> {
         let start = Instant::now();
         let addresses_future = self.hcomb_manager.find_or_start(&query.capacity);
-        let plan_future = self.query_planner.plan(query.steps, query.capacity.zones);
+        let query_id = format!("query-{}", Utc::now().to_rfc3339());
+        let plan_future =
+            self.query_planner
+                .plan(query_id.clone(), query.steps, query.capacity.zones);
         let (addresses, plan) = join!(addresses_future, plan_future);
         let plan = plan?;
 
@@ -80,7 +84,11 @@ impl FuseService {
         for i in 0..plan.zones.len() {
             for j in 0..plan.zones[i].hbee.len() {
                 self.hbee_scheduler
-                    .schedule(&addresses[i], plan.zones[i].hbee[j].clone())
+                    .schedule(
+                        query_id.clone(),
+                        &addresses[i],
+                        plan.zones[i].hbee[j].clone(),
+                    )
                     .await?;
             }
         }

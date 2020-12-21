@@ -29,10 +29,12 @@ impl HCombService {
         }
     }
 
+    /// Executes the hcomb plan
+    /// Returns the query id and the result stream
     pub async fn execute_query(
         &self,
         plan: LogicalPlan,
-    ) -> Result<SendableRecordBatchStream> {
+    ) -> Result<(String, SendableRecordBatchStream)> {
         println!("[hcomb] execute query...");
         let result_table = find_table::<ResultTable>(&plan)?;
         let batch_stream = self
@@ -42,7 +44,7 @@ impl HCombService {
         let physical_plan = self.execution_context.create_physical_plan(&plan).unwrap();
 
         // if necessary, merge the partitions
-        match physical_plan.output_partitioning().partition_count() {
+        let query_res = match physical_plan.output_partitioning().partition_count() {
             0 => Err(internal_err!("Should have at least one partition")),
             1 => physical_plan.execute(0).await.map_err(|e| e.into()),
             _ => {
@@ -51,7 +53,8 @@ impl HCombService {
                 assert_eq!(1, physical_plan.output_partitioning().partition_count());
                 physical_plan.execute(0).await.map_err(|e| e.into())
             }
-        }
+        };
+        query_res.map(|res| (result_table.query_id().to_owned(), res))
     }
 
     pub async fn add_results(
@@ -62,7 +65,6 @@ impl HCombService {
         let mut batches = Box::pin(batches);
         while let Some(batch) = batches.next().await {
             self.results_service.add_result(&query_id, batch);
-            println!("self.results_service.add_result(&query_id, batch);");
         }
         self.results_service.task_finished(&query_id);
     }

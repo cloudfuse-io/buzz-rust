@@ -17,7 +17,11 @@ async fn exec(mut req: Request<Body>) -> Result<Response<Body>, DynError> {
     let hbee_event: HBeeEvent = serde_json::from_slice(&body)?;
     let hbee_service = HBeeService::new();
     hbee_service
-        .execute_query(hbee_event.plan.parse()?, hbee_event.hcomb_address)
+        .execute_query(
+            hbee_event.query_id,
+            hbee_event.plan.parse()?,
+            hbee_event.hcomb_address,
+        )
         .await?;
     Ok(Response::new(Body::from("Ok!")))
 }

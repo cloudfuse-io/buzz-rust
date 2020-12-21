@@ -29,6 +29,7 @@ impl HBeeService {
 impl HBeeService {
     pub async fn execute_query(
         &self,
+        query_id: String,
         plan: LogicalPlan,
         address: HCombAddress,
     ) -> Result<()> {
@@ -53,7 +54,7 @@ impl HBeeService {
                 physical_plan.execute(0).await.map_err(|e| e.into())
             }
         }?;
-        flight_client::call_do_put(&address, res_stream)
+        flight_client::call_do_put(query_id, &address, res_stream)
             .await
             .map_err(|e| internal_err!("Could not do_put hbee result: {}", e))?;
         println!("[hbee] run duration: {}", start.elapsed().as_millis());

@@ -45,6 +45,7 @@ pub struct RangeCache {
 }
 
 impl RangeCache {
+    /// Spawns a task that will listen for new chunks to download and schedule them for download
     pub async fn new<T: Downloader + 'static>(downloader: T) -> Self {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<(u64, usize)>();
         let cache = Self {
@@ -80,12 +81,15 @@ impl RangeCache {
         cache
     }
 
+    /// Add a new chunk to the download queue
     pub fn schedule(&self, start: u64, length: usize) {
         self.data.lock().unwrap().insert(start, Download::Pending);
         self.tx.send((start, length)).unwrap();
     }
 
+    /// Get a chunk from the cache
     /// For now the cache can only get get single chunck readers and fails if the dl was not scheduled
+    /// If the download is not finished, this waits synchronously for the chunk to be ready
     pub fn get(&self, start: u64, length: usize) -> Result<CachedRead> {
         use std::ops::Bound::{Included, Unbounded};
         let mut data_guard = self.data.lock().unwrap();

@@ -41,7 +41,6 @@ impl ResultsService {
     }
 
     pub fn add_result(&self, query_id: &str, data: RecordBatch) {
-        println!("add_result({},data)", query_id);
         let sender_map = self.tx_map.lock().unwrap();
         let res_opt = sender_map.get(query_id);
         match res_opt {
@@ -55,14 +54,12 @@ impl ResultsService {
     }
 
     pub fn task_finished(&self, query_id: &str) {
-        println!("task_finished({})", query_id);
         let mut sender_map = self.tx_map.lock().unwrap();
         let res_opt = sender_map.get_mut(query_id);
         match res_opt {
             Some(res) => {
                 res.remaining_tasks -= 1;
                 if res.remaining_tasks == 0 {
-                    println!("cleaning up tx for {}", query_id);
                     res.tx = None;
                 }
             }

@@ -22,19 +22,14 @@ use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 #[derive(Debug, Clone)]
 pub struct ParquetExec {
     files: Vec<S3FileAsync>,
+    /// Schema before projection is applied
+    file_schema: SchemaRef,
     /// Schema after projection is applied
-    schema: SchemaRef,
+    projected_schema: SchemaRef,
     /// Projection for which columns to load
     projection: Vec<usize>,
     /// Batch size
     batch_size: usize,
-}
-
-fn path_to_reader(file: S3FileAsync) -> ParquetFileArrowReader {
-    let file_reader = Arc::new(
-        SerializedFileReader::new(file).expect("Failed to create serialized reader"),
-    );
-    ParquetFileArrowReader::new(file_reader)
 }
 
 impl ParquetExec {
@@ -49,16 +44,38 @@ impl ParquetExec {
             Some(p) => p,
             None => (0..schema.fields().len()).collect(),
         };
+        let projected_schema = Schema::new(
+            projection
+                .iter()
+                .map(|col| schema.field(*col).clone())
+                .collect(),
+        );
+        Ok(Self {
+            files,
+            file_schema: schema,
+            projected_schema: Arc::new(projected_schema),
+            projection,
+            batch_size,
+        })
+    }
 
-        for i in 0..files.len() {
-            Self::download_footer(files[i].clone());
+    /// Read the footer and schedule the downloads of all the required chunks
+    async fn init_file(&self, partition: usize) -> Result<()> {
+        Self::download_footer(self.files[partition].clone());
+        let file_schema = self.file_schema.clone();
+        let file = self.files[partition].clone();
+        let projection = self.projection.clone();
+
+        // Reading the footer is blocking so it should be started on a specific thread
+        tokio::task::spawn_blocking(move || {
             let file_reader = Arc::new(
-                SerializedFileReader::new(files[i].clone())
+                SerializedFileReader::new(file.clone())
                     .expect("Failed to create serialized reader"),
             );
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader.clone());
+
             // TODO what about metadata ?
-            if schema.fields() != arrow_reader.get_schema()?.fields() {
+            if file_schema.fields() != arrow_reader.get_schema()?.fields() {
                 return Err(DataFusionError::Plan(
                     "Expected and parsed schema fields are not equal".to_owned(),
                 ));
@@ -70,24 +87,13 @@ impl ParquetExec {
                     let rg_metadata = metadata.row_group(i);
                     let col_metadata = rg_metadata.column(*proj);
                     let (start, length) = col_metadata.byte_range();
-                    files[i].prefetch(start, length as usize);
+                    file.prefetch(start, length as usize);
                 }
             }
-        }
-
-        let projected_schema = Schema::new(
-            projection
-                .iter()
-                .map(|col| schema.field(*col).clone())
-                .collect(),
-        );
-
-        Ok(Self {
-            files,
-            schema: Arc::new(projected_schema),
-            projection,
-            batch_size,
+            Ok(())
         })
+        .await
+        .unwrap()
     }
 
     fn download_footer(file: S3FileAsync) {
@@ -108,7 +114,7 @@ impl ExecutionPlan for ParquetExec {
     }
 
     fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+        self.projected_schema.clone()
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -136,6 +142,7 @@ impl ExecutionPlan for ParquetExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        self.init_file(partition).await?;
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
@@ -154,7 +161,7 @@ impl ExecutionPlan for ParquetExec {
         });
 
         Ok(Box::pin(ParquetStream {
-            schema: self.schema.clone(),
+            schema: self.projected_schema.clone(),
             response_rx,
         }))
     }
@@ -176,7 +183,12 @@ fn read_file(
     batch_size: usize,
     response_tx: SyncSender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
-    let mut arrow_reader = path_to_reader(file.clone());
+    // TODO avoid footing being parsed twice here
+    let file_reader = Arc::new(
+        SerializedFileReader::new(file.clone())
+            .expect("Failed to create serialized reader"),
+    );
+    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
     let mut batch_reader =
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
     loop {

@@ -1,4 +1,3 @@
-use chrono::Utc;
 use std::sync::Arc;
 
 use crate::catalog::Catalog;
@@ -40,6 +39,7 @@ impl QueryPlanner {
 
     pub async fn plan(
         &mut self,
+        query_id: String,
         query_steps: Vec<BuzzStep>,
         nb_hcomb: i16,
     ) -> Result<DistributedPlan> {
@@ -57,11 +57,8 @@ impl QueryPlanner {
         let bee_plans = self.split(&src_bee_plan).await?;
 
         // register a handle to the intermediate table on the context
-        let result_table = ResultTable::new(
-            format!("{}-{}", &query_steps[0].name, Utc::now().to_rfc3339()),
-            bee_plans.len(),
-            bee_output_schema.into(),
-        );
+        let result_table =
+            ResultTable::new(query_id, bee_plans.len(), bee_output_schema.into());
         self.execution_context
             .register_table(&query_steps[0].name, Box::new(result_table));
 
@@ -106,10 +103,17 @@ impl QueryPlanner {
                 ))
             } else if new_inputs.len() == 1 {
                 let exprs = datafusion::optimizer::utils::expressions(&plan);
-                let input = self.split(new_inputs[0]).await?;
-                Ok(vec![datafusion::optimizer::utils::from_plan(
-                    plan, &exprs, &input,
-                )?])
+                let inputs = self.split(new_inputs[0]).await?;
+                inputs
+                    .into_iter()
+                    .map(|lp| -> Result<LogicalPlan> {
+                        Ok(datafusion::optimizer::utils::from_plan(
+                            plan,
+                            &exprs,
+                            &vec![lp],
+                        )?)
+                    })
+                    .collect::<Result<Vec<_>>>()
             } else if let Some(catalog_table) = Self::as_catalog(&plan) {
                 catalog_table
                     .split()
@@ -136,101 +140,3 @@ impl QueryPlanner {
         }
     }
 }
-
-// use std::sync::Arc;
-
-// use crate::catalog::{Catalog, SizedFile};
-// use crate::dataframe_ops::ClosureDataframeOps;
-// use crate::error::Result;
-// use crate::hbee_query::HBeeQueryBatch;
-// use crate::hcomb_query::HCombQuery;
-// use arrow::datatypes::Schema;
-// use datafusion::dataframe::DataFrame;
-// use datafusion::logical_plan::{col, count, sum};
-
-// pub struct QueryPlanner {
-//     catalog: Box<dyn Catalog>,
-// }
-
-// impl QueryPlanner {
-//     pub fn new(catalog: Box<dyn Catalog>) -> Self {
-//         Self { catalog }
-//     }
-
-//     fn hcomb(
-//         &self,
-//         query_id: String,
-//         nb_hbees: usize,
-//         column_name: String,
-//         schema: Arc<Schema>,
-//     ) -> Result<HCombQuery> {
-//         let query = move |df: Arc<dyn DataFrame>| {
-//             // Ok(df)
-//             // df.select(vec![col(&column_name), col(&format!("COUNT({})", &column_name))])
-//             // df.aggregate(vec![col(&column_name)], vec![sum(col(&format!("COUNT({})", &column_name)))])
-//             df.aggregate(
-//                 vec![col(&column_name)],
-//                 vec![sum(col(&format!("COUNT({})", &column_name)))],
-//             )?
-//             .sort(vec![
-//                 col(&format!("SUM(COUNT({}))", &column_name)).sort(false, false)
-//             ])
-//         };
-//         Ok(HCombQuery {
-//             query_id,
-//             nb_hbees,
-//             schema,
-//             ops: Box::new(ClosureDataframeOps {
-//                 ops: Arc::new(query),
-//             }),
-//         })
-//     }
-
-//     fn hbee(&self, query_id: String, column_name: String) -> Result<HBeeQueryBatch> {
-//         let query = move |df: Arc<dyn DataFrame>| {
-//             df.aggregate(vec![col(&column_name)], vec![count(col(&column_name))])?
-//                 .sort(vec![
-//                     col(&format!("COUNT({})", &column_name)).sort(false, false)
-//                 ])
-//         };
-//         Ok(HBeeQueryBatch {
-//             query_id,
-//             input_schema: self.catalog.get_schema("nyc-taxi")?,
-//             region: "eu-west-1".to_owned(),
-//             file_bucket: "cloudfuse-taxi-data".to_owned(),
-//             file_distribution: vec![
-//                 vec![SizedFile {
-//                     key: "raw_small/2009/01/data.parquet".to_owned(),
-//                     length: 27301328,
-//                 }],
-//                 vec![SizedFile {
-//                     key: "raw_small/2009/01/data.parquet".to_owned(),
-//                     length: 27301328,
-//                 }],
-//             ],
-//             // file_distribution: vec![vec![SizedFile {
-//             //     key: "raw_5M/2009/01/data.parquet".to_owned(),
-//             //     length: 388070114,
-//             // }]],
-//             ops: Arc::new(ClosureDataframeOps {
-//                 ops: Arc::new(query),
-//             }),
-//         })
-//     }
-
-//     pub fn plan(&self, column_name: String) -> Result<(HCombQuery, HBeeQueryBatch)> {
-//         let query_id = "test0";
-//         // prepare hbee queries
-//         let hbee_query = self.hbee(query_id.to_owned(), column_name.clone())?;
-//         // compute schema that will be returned by hbees
-//         let intermediate_schema = hbee_query.output_schema()?;
-//         // prepare hcomb query
-//         let hcomb_query = self.hcomb(
-//             query_id.to_owned(),
-//             hbee_query.nb_hbees(),
-//             column_name.clone(),
-//             intermediate_schema,
-//         )?;
-//         Ok((hcomb_query, hbee_query))
-//     }
-// }

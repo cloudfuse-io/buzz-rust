@@ -15,7 +15,12 @@ use serde::{Deserialize, Serialize};
 
 #[async_trait]
 pub trait HBeeScheduler {
-    async fn schedule(&self, address: &HCombAddress, plan: LogicalPlan) -> Result<()>;
+    async fn schedule(
+        &self,
+        query_id: String,
+        address: &HCombAddress,
+        plan: LogicalPlan,
+    ) -> Result<()>;
 }
 
 pub struct TestHBeeScheduler {
@@ -56,6 +61,8 @@ impl LogicalPlanBytes {
 
 #[derive(Serialize, Deserialize)]
 pub struct HBeeEvent {
+    #[serde(rename = "id")]
+    pub query_id: String,
     #[serde(rename = "a")]
     pub hcomb_address: HCombAddress,
     #[serde(rename = "p")]
@@ -64,10 +71,16 @@ pub struct HBeeEvent {
 
 #[async_trait]
 impl HBeeScheduler for TestHBeeScheduler {
-    async fn schedule(&self, address: &HCombAddress, plan: LogicalPlan) -> Result<()> {
+    async fn schedule(
+        &self,
+        query_id: String,
+        address: &HCombAddress,
+        plan: LogicalPlan,
+    ) -> Result<()> {
         let client = Client::new();
 
         let req_body = serde_json::to_string(&HBeeEvent {
+            query_id,
             hcomb_address: address.clone(),
             plan: LogicalPlanBytes::try_new(&plan)?,
         })
