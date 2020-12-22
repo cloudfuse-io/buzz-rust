@@ -35,12 +35,12 @@ impl fmt::Debug for StreamExec {
 }
 
 impl StreamExec {
-    pub fn try_new(
+    pub fn new(
         stream: Pin<Box<dyn Stream<Item = RecordBatch> + Send>>,
         schema: SchemaRef,
         projection: Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<Self> {
+    ) -> Self {
         let projection = match projection {
             Some(p) => p,
             None => (0..schema.fields().len()).collect(),
@@ -53,12 +53,12 @@ impl StreamExec {
                 .collect(),
         );
 
-        Ok(Self {
+        Self {
             stream: Mutex::new(Some(stream)),
             schema: Arc::new(projected_schema),
             projection,
             batch_size,
-        })
+        }
     }
 }
 
@@ -137,9 +137,39 @@ impl<St: Stream<Item = RecordBatch>> RecordBatchStream for StreamStream<St> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::datasource::HCombTable;
+    use arrow::array::Int32Array;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use datafusion::datasource::TableProvider;
 
     #[tokio::test]
-    async fn test() -> Result<()> {
+    async fn test_not_empty() -> Result<()> {
+        let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int32, false)]));
+        let hcomb_table = HCombTable::new("mock_query_id".to_owned(), 1, schema.clone());
+        let batches = vec![RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from(vec![1, 2, 3]))],
+        )?];
+        hcomb_table.set(Box::pin(futures::stream::iter(batches.clone())));
+
+        let exec_plan = hcomb_table.scan(&None, 1024)?;
+
+        let results = datafusion::physical_plan::collect(exec_plan).await?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(format!("{:?}", results), format!("{:?}", batches));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_empty() -> Result<()> {
+        let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int32, false)]));
+        let hcomb_table = HCombTable::new("mock_query_id".to_owned(), 1, schema.clone());
+        hcomb_table.set(Box::pin(futures::stream::iter(vec![])));
+
+        let exec_plan = hcomb_table.scan(&Some(vec![0]), 2048)?;
+
+        let results = datafusion::physical_plan::collect(exec_plan).await?;
+        assert_eq!(results.len(), 0);
         Ok(())
     }
 }

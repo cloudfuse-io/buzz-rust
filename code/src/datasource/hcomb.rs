@@ -56,12 +56,12 @@ impl TableProvider for HCombTable {
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match self.stream.lock().unwrap().take() {
-            Some(stream) => Ok(Arc::new(StreamExec::try_new(
+            Some(stream) => Ok(Arc::new(StreamExec::new(
                 stream,
                 self.schema(),
                 projection.clone(),
                 batch_size,
-            )?)),
+            ))),
             None => Err(datafusion::error::DataFusionError::Execution(
                 "Cannot scan stream source more than once".to_owned(),
             )),

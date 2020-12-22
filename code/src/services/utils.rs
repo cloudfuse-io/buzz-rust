@@ -49,10 +49,10 @@ mod tests {
     #[test]
     fn search_table_linear_plan() -> Result<()> {
         let mut ctx = ExecutionContext::new();
-        let empty_table = EmptyTable::new(Arc::new(Schema::empty()));
+        let empty_table = Arc::new(EmptyTable::new(Arc::new(Schema::empty())));
         let scalar_expr = Expr::Literal(ScalarValue::from(10));
 
-        let source_df = ctx.read_table(Arc::new(empty_table))?;
+        let source_df = ctx.read_table(empty_table.clone())?;
 
         let filtered_df =
             source_df.filter(scalar_expr.clone().eq(scalar_expr.clone()))?;
@@ -60,11 +60,24 @@ mod tests {
         let grouped_df = filtered_df
             .aggregate(vec![scalar_expr.clone()], vec![sum(scalar_expr.clone())])?;
 
-        assert!(find_table::<EmptyTable>(&source_df.to_logical_plan()).is_ok());
-        assert!(find_table::<EmptyTable>(&filtered_df.to_logical_plan()).is_ok());
-        assert!(find_table::<EmptyTable>(&grouped_df.to_logical_plan()).is_ok());
+        // search and find
+        find_and_assert_eq(source_df, empty_table.clone());
+        find_and_assert_eq(filtered_df, empty_table.clone());
+        find_and_assert_eq(grouped_df.clone(), empty_table.clone());
+
+        // search but not found
         assert!(find_table::<CatalogTable>(&grouped_df.to_logical_plan()).is_err());
 
         Ok(())
+    }
+
+    fn find_and_assert_eq(
+        df: Arc<dyn datafusion::dataframe::DataFrame>,
+        origin: Arc<EmptyTable>,
+    ) {
+        let log_plan = &df.to_logical_plan();
+        let found_tb = find_table::<EmptyTable>(log_plan);
+        assert!(found_tb.is_ok());
+        assert!(std::ptr::eq(found_tb.unwrap(), &*origin));
     }
 }
