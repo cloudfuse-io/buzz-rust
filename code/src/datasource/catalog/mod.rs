@@ -16,7 +16,7 @@ pub struct SizedFile {
 
 /// A specific type of TableProvider that cannot be converted to a physical plan
 /// but can be splitted to be distributed to hbees
-trait SplittableTable {
+pub trait SplittableTable {
     fn split(&self) -> Vec<HBeeTable>;
     fn schema(&self) -> SchemaRef;
     fn statistics(&self) -> Statistics;
