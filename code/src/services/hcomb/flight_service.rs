@@ -3,9 +3,9 @@ use std::io::Cursor;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use crate::flight_utils;
-use crate::hcomb_service::HCombService;
+use super::hcomb_service::HCombService;
 use crate::protobuf::LogicalPlanNode;
+use crate::services::flight_utils;
 use arrow_flight::flight_service_server::FlightServiceServer;
 use arrow_flight::{
     flight_service_server::FlightService, Action, ActionType, Criteria, Empty,

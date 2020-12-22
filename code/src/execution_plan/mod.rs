@@ -1,3 +1,5 @@
+//! Execution plans are implementations of DataFusion's ExecutionPlan trait
+
 mod s3_parquet;
 mod stream;
 

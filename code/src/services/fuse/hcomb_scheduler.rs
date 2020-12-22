@@ -1,9 +1,9 @@
 use std::pin::Pin;
 
+use super::flight_client;
 use crate::error::Result;
-use crate::flight_client;
-use crate::hcomb_manager::HCombAddress;
 use crate::internal_err;
+use crate::models::HCombAddress;
 use arrow::record_batch::RecordBatch;
 use async_trait::async_trait;
 use datafusion::logical_plan::LogicalPlan;

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::datasource::{CatalogTable, SizedFile, StaticCatalogTable};
+use crate::datasource::{CatalogTable, StaticCatalogTable};
+use crate::models::SizedFile;
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
 pub fn nyc_taxi_small() -> CatalogTable {

@@ -1,3 +1,5 @@
+//! These serialization / deserialization methods allow the exchange of DataFusion logical plans between services
+
 pub mod from_proto;
 pub mod to_proto;
 
@@ -6,7 +8,8 @@ mod tests {
     use std::convert::TryInto;
     use std::sync::Arc;
 
-    use crate::datasource::{S3ParquetTable, SizedFile};
+    use crate::datasource::S3ParquetTable;
+    use crate::models::SizedFile;
     use crate::protobuf;
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
     use datafusion::execution::context::ExecutionContext;

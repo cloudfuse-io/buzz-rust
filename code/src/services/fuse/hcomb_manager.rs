@@ -1,7 +1,5 @@
-use crate::query::HCombCapacity;
+use crate::models::{query::HCombCapacity, HCombAddress};
 use async_trait::async_trait;
-
-pub type HCombAddress = String;
 
 #[async_trait]
 pub trait HCombManager {

@@ -1,12 +1,12 @@
 use std::time::Instant;
 
+use super::hbee_scheduler::HBeeScheduler;
+use super::hcomb_manager::HCombManager;
+use super::hcomb_scheduler::HCombScheduler;
+use super::query_planner::QueryPlanner;
 use crate::datasource::CatalogTable;
 use crate::error::Result;
-use crate::hbee_scheduler::HBeeScheduler;
-use crate::hcomb_manager::HCombManager;
-use crate::hcomb_scheduler::HCombScheduler;
-use crate::query::BuzzQuery;
-use crate::query_planner::QueryPlanner;
+use crate::models::query::BuzzQuery;
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
 use chrono::Utc;

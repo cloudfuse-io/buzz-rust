@@ -2,24 +2,9 @@ pub mod datasource;
 pub mod error;
 pub mod example_catalog;
 pub mod execution_plan;
-pub mod flight_client;
-pub mod flight_service;
-pub mod fuse_service;
-// pub mod hbee_query;
-pub mod hbee_scheduler;
-pub mod hbee_service;
-pub mod hcomb_manager;
-// pub mod hcomb_query;
-pub mod flight_utils;
-pub mod hcomb_scheduler;
-pub mod hcomb_service;
-pub mod query;
-pub mod query_planner;
-pub mod range_cache;
-pub mod results_service;
-pub mod s3;
+pub mod models;
 pub mod serde;
-pub mod utils;
+pub mod services;
 
 // include the generated protobuf source as a submodule
 #[allow(clippy::all)]

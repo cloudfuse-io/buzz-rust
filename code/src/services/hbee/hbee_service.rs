@@ -1,11 +1,11 @@
 use std::time::Instant;
 
+use super::flight_client;
 use crate::datasource::HBeeTable;
 use crate::error::Result;
-use crate::flight_client;
-use crate::hcomb_manager::HCombAddress;
 use crate::internal_err;
-use crate::utils;
+use crate::models::HCombAddress;
+use crate::services::utils;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::logical_plan::LogicalPlan;
 use datafusion::physical_plan::{merge::MergeExec, ExecutionPlan};

@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::range_cache::{CachedRead, Downloader, RangeCache};
+use super::range_cache::{CachedRead, Downloader, RangeCache};
 use async_trait::async_trait;
 use parquet::file::reader::{ChunkReader, Length};
 use rusoto_core::Region;

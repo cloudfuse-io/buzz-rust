@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use buzz::s3::{self, S3FileAsync};
+use buzz::services::hbee::s3::{self, S3FileAsync};
 use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 
 async fn async_main() {

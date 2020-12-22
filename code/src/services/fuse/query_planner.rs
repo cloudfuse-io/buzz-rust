@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crate::datasource::{CatalogTable, HCombTable};
 use crate::error::Result;
+use crate::models::query::{BuzzStep, BuzzStepType};
 use crate::not_impl_err;
-use crate::query::{BuzzStep, BuzzStepType};
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::LogicalPlan;
 use futures::future::{BoxFuture, FutureExt};

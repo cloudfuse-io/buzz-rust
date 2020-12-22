@@ -1,10 +1,10 @@
 use std::convert::TryInto;
 use std::sync::Arc;
 
-use crate::datasource::SizedFile;
 use crate::datasource::{HBeeTable, HCombTable, S3ParquetTable};
 use crate::error::BuzzError;
 use crate::internal_err;
+use crate::models::SizedFile;
 use crate::protobuf;
 use arrow::datatypes::Schema;
 use arrow::ipc::convert;

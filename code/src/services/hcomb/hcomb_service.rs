@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
+use super::results_service::ResultsService;
 use crate::datasource::HCombTable;
 use crate::error::Result;
 use crate::internal_err;
-use crate::results_service::ResultsService;
-use crate::utils::find_table;
+use crate::services::utils;
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::logical_plan::LogicalPlan;
@@ -36,7 +36,7 @@ impl HCombService {
         plan: LogicalPlan,
     ) -> Result<(String, SendableRecordBatchStream)> {
         println!("[hcomb] execute query...");
-        let result_table = find_table::<HCombTable>(&plan)?;
+        let result_table = utils::find_table::<HCombTable>(&plan)?;
         let batch_stream = self
             .results_service
             .new_query(result_table.query_id().to_owned(), result_table.nb_hbee());

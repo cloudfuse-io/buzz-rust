@@ -1,9 +1,9 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use crate::datasource::catalog::SizedFile;
 use crate::execution_plan::ParquetExec;
-use crate::s3::{self, S3FileAsync};
+use crate::models::SizedFile;
+use crate::services::hbee::s3::{self, S3FileAsync};
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;

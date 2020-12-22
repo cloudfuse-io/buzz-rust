@@ -1,5 +1,6 @@
-use buzz::flight_service::FlightServiceImpl;
-use buzz::hcomb_service::HCombService;
+use buzz::services::hcomb::{
+    flight_service::FlightServiceImpl, hcomb_service::HCombService,
+};
 
 pub async fn start_hcomb_server() -> Result<(), Box<dyn std::error::Error>> {
     let hcomb_service = HCombService::new();

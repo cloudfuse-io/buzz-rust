@@ -1,10 +1,10 @@
 use buzz::example_catalog;
-use buzz::fuse_service::FuseService;
-use buzz::hbee_scheduler::TestHBeeScheduler;
-use buzz::hcomb_manager::TestHCombManager;
-use buzz::hcomb_scheduler::HttpHCombScheduler;
-use buzz::query::{BuzzQuery, BuzzStep, BuzzStepType, HCombCapacity};
-use buzz::query_planner::QueryPlanner;
+use buzz::models::query::{BuzzQuery, BuzzStep, BuzzStepType, HCombCapacity};
+use buzz::services::fuse::{
+    fuse_service::FuseService, hbee_scheduler::TestHBeeScheduler,
+    hcomb_manager::TestHCombManager, hcomb_scheduler::HttpHCombScheduler,
+    query_planner::QueryPlanner,
+};
 
 pub async fn start_fuse(
     hbee_addr: &str,
