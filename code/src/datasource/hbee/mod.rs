@@ -17,10 +17,6 @@ pub enum HBeeTable {
 }
 
 impl HBeeTable {
-    pub fn new_s3_parquet(table: S3ParquetTable) -> Self {
-        Self::S3Parquet(table)
-    }
-
     pub async fn start_download(&self) {
         match self {
             HBeeTable::S3Parquet(table) => table.start_download().await,

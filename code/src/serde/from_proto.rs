@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::sync::Arc;
 
-use crate::datasource::{HBeeTable, HCombTable, S3ParquetTable};
+use crate::datasource::{HCombTable, S3ParquetTable};
 use crate::error::BuzzError;
 use crate::internal_err;
 use crate::models::SizedFile;
@@ -91,7 +91,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                             .collect(),
                         Arc::new(schema),
                     );
-                    Arc::new(HBeeTable::new_s3_parquet(provider))
+                    Arc::new(provider)
                 }
                 protobuf::logical_plan_node::Scan::Result(scan_node) => {
                     let schema: Schema = convert::schema_from_bytes(&scan_node.schema)

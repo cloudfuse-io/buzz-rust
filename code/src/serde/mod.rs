@@ -8,7 +8,7 @@ mod tests {
     use std::convert::TryInto;
     use std::sync::Arc;
 
-    use crate::datasource::S3ParquetTable;
+    use crate::datasource::{HBeeTable, S3ParquetTable};
     use crate::models::SizedFile;
     use crate::protobuf;
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
@@ -58,7 +58,7 @@ mod tests {
         Ok(())
     }
 
-    fn mock_table() -> S3ParquetTable {
+    fn mock_table() -> HBeeTable {
         let schema = Schema::new(vec![
             Field::new("id", DataType::Int32, false),
             Field::new("name", DataType::Utf8, false),

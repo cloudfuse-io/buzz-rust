@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
+use super::HBeeTable;
 use crate::execution_plan::ParquetExec;
 use crate::models::SizedFile;
 use crate::services::hbee::s3::{self, S3FileAsync};
@@ -27,14 +28,14 @@ impl S3ParquetTable {
         bucket: String,
         files: Vec<SizedFile>,
         schema: SchemaRef,
-    ) -> Self {
-        Self {
+    ) -> HBeeTable {
+        HBeeTable::S3Parquet(Self {
             schema,
             region,
             bucket,
             files,
             downloads: Mutex::new(None),
-        }
+        })
     }
 
     pub async fn start_download(&self) {

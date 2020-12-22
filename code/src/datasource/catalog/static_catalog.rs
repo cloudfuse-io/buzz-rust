@@ -35,13 +35,13 @@ impl SplittableTable for StaticCatalogTable {
     fn split(&self) -> Vec<HBeeTable> {
         self.files
             .iter()
-            .map(|file| -> HBeeTable {
-                HBeeTable::new_s3_parquet(S3ParquetTable::new(
+            .map(|file| {
+                S3ParquetTable::new(
                     self.region.clone(),
                     self.bucket.clone(),
                     vec![file.clone()],
                     Arc::clone(&self.schema),
-                ))
+                )
             })
             .collect::<Vec<_>>()
     }
