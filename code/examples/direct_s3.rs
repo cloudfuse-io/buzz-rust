@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
-use buzz::services::hbee::s3::{self, S3FileAsync};
+use buzz::services::hbee::{range_cache::RangeCache, s3::S3FileAsync};
 use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 
 async fn async_main() {
-    let s3_client = Arc::new(s3::new_client("eu-west-1"));
+    let cache = RangeCache::new().await;
     let file = S3FileAsync::new(
-        "cloudfuse-taxi-data".to_owned(),
-        // "raw_small/2009/01/data.parquet".to_owned(),
+        "eu-west-1",
+        "cloudfuse-taxi-data",
+        // "raw_small/2009/01/data.parquet",
         // 27301328,
-        "raw_5M/2009/01/data.parquet".to_owned(),
+        "raw_5M/2009/01/data.parquet",
         388070114,
-        Arc::clone(&s3_client),
-    )
-    .await;
+        Arc::new(cache),
+    );
 
     // download footer
     let prefetch_size = 1024 * 1024;

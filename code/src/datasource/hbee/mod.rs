@@ -3,6 +3,7 @@ pub mod s3_parquet;
 use std::any::Any;
 use std::sync::Arc;
 
+use crate::services::hbee::range_cache::RangeCache;
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
@@ -17,9 +18,9 @@ pub enum HBeeTable {
 }
 
 impl HBeeTable {
-    pub async fn start_download(&self) {
+    pub fn set_cache(&self, cache: Arc<RangeCache>) {
         match self {
-            HBeeTable::S3Parquet(table) => table.start_download().await,
+            HBeeTable::S3Parquet(table) => table.set_cache(cache),
         }
     }
 }

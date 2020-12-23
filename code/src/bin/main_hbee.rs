@@ -15,7 +15,7 @@ async fn exec(mut req: Request<Body>) -> Result<Response<Body>, DynError> {
         body.extend_from_slice(&chunk?);
     }
     let hbee_event: HBeeEvent = serde_json::from_slice(&body)?;
-    let hbee_service = HBeeService::new();
+    let hbee_service = HBeeService::new().await;
     hbee_service
         .execute_query(
             hbee_event.query_id,

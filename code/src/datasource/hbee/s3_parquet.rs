@@ -4,13 +4,13 @@ use std::sync::{Arc, Mutex};
 use super::HBeeTable;
 use crate::execution_plan::ParquetExec;
 use crate::models::SizedFile;
-use crate::services::hbee::s3::{self, S3FileAsync};
+use crate::services::hbee::range_cache::RangeCache;
+use crate::services::hbee::s3::S3FileAsync;
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
 use datafusion::physical_plan::ExecutionPlan;
-use futures::stream::{FuturesOrdered, StreamExt};
 
 /// Table-based representation of a `ParquetFile` backed by S3.
 pub struct S3ParquetTable {
@@ -18,7 +18,7 @@ pub struct S3ParquetTable {
     bucket: String,
     files: Vec<SizedFile>,
     schema: SchemaRef,
-    downloads: Mutex<Option<Vec<S3FileAsync>>>,
+    cache: Mutex<Option<Arc<RangeCache>>>,
 }
 
 impl S3ParquetTable {
@@ -34,31 +34,12 @@ impl S3ParquetTable {
             region,
             bucket,
             files,
-            downloads: Mutex::new(None),
+            cache: Mutex::new(None),
         })
     }
 
-    pub async fn start_download(&self) {
-        println!("[hbee] start_download");
-        // TODO mutualize client even further?
-        let client = s3::new_client(&self.region);
-
-        let downloads = self
-            .files
-            .iter()
-            .map(|sized_file| {
-                // TODO better coordinate download scheduling
-                s3::S3FileAsync::new(
-                    self.bucket.clone(),
-                    sized_file.key.clone(),
-                    sized_file.length,
-                    Arc::clone(&client),
-                )
-            })
-            .collect::<FuturesOrdered<_>>()
-            .collect::<Vec<_>>()
-            .await;
-        *(self.downloads.lock().unwrap()) = Some(downloads);
+    pub fn set_cache(&self, cache: Arc<RangeCache>) {
+        self.cache.lock().unwrap().replace(cache);
     }
 
     pub fn region(&self) -> &str {
@@ -88,19 +69,32 @@ impl TableProvider for S3ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let downloads = self.downloads.lock().unwrap();
-        let files =
-            downloads
+        let cache_guard = self.cache.lock().unwrap();
+        let cache =
+            cache_guard
                 .as_ref()
                 .ok_or(datafusion::error::DataFusionError::Plan(
                     "Download should be started before execution".to_owned(),
                 ))?;
-        Ok(Arc::new(ParquetExec::try_new(
-            files.clone(),
+        let s3_files = self
+            .files
+            .iter()
+            .map(|file| {
+                S3FileAsync::new(
+                    &self.region,
+                    &self.bucket,
+                    &file.key,
+                    file.length,
+                    Arc::clone(&cache),
+                )
+            })
+            .collect::<Vec<_>>();
+        Ok(Arc::new(ParquetExec::new(
+            s3_files,
             projection.clone(),
             batch_size,
             Arc::clone(&self.schema),
-        )?))
+        )))
     }
 
     fn statistics(&self) -> Statistics {

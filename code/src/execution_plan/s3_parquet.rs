@@ -34,12 +34,12 @@ pub struct ParquetExec {
 
 impl ParquetExec {
     /// Create a new Parquet reader execution plan
-    pub fn try_new(
+    pub fn new(
         files: Vec<S3FileAsync>,
         projection: Option<Vec<usize>>,
         batch_size: usize,
         schema: SchemaRef,
-    ) -> Result<Self> {
+    ) -> Self {
         let projection = match projection {
             Some(p) => p,
             None => (0..schema.fields().len()).collect(),
@@ -50,13 +50,13 @@ impl ParquetExec {
                 .map(|col| schema.field(*col).clone())
                 .collect(),
         );
-        Ok(Self {
+        Self {
             files,
             file_schema: schema,
             projected_schema: Arc::new(projected_schema),
             projection,
             batch_size,
-        })
+        }
     }
 
     /// Read the footer and schedule the downloads of all the required chunks

@@ -11,7 +11,7 @@ use tokio::io::AsyncReadExt;
 
 //// S3 Client ////
 
-pub fn new_client(region: &str) -> Arc<S3Client> {
+fn new_client(region: &str) -> Arc<S3Client> {
   let region = Region::from_str(region).unwrap();
   Arc::new(S3Client::new(region))
 }
@@ -20,18 +20,17 @@ pub fn new_client(region: &str) -> Arc<S3Client> {
 
 #[derive(Clone)]
 struct S3Downloader {
-  bucket: String,
-  key: String,
   client: Arc<S3Client>,
 }
 
 #[async_trait]
 impl Downloader for S3Downloader {
-  async fn download(&self, start: u64, length: usize) -> Vec<u8> {
+  async fn download(&self, file_id: String, start: u64, length: usize) -> Vec<u8> {
+    let mut file_id_split = file_id.split("/");
     let range = format!("bytes={}-{}", start, start + length as u64 - 1);
     let get_obj_req = GetObjectRequest {
-      bucket: self.bucket.clone(),
-      key: self.key.clone(),
+      bucket: file_id_split.next().unwrap().to_owned(),
+      key: file_id_split.collect::<Vec<&str>>().join("/"),
       range: Some(range),
       ..Default::default()
     };
@@ -55,44 +54,51 @@ impl Downloader for S3Downloader {
 
 #[derive(Clone)]
 pub struct S3FileAsync {
-  bucket: String,
-  key: String,
+  region: String,
+  dler_id: String,
+  file_id: String,
   length: u64,
-  data: Arc<RangeCache>,
+  cache: Arc<RangeCache>,
 }
 
 impl fmt::Debug for S3FileAsync {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("S3FileAsync")
-      .field("bucket", &self.bucket)
-      .field("key", &self.key)
+      .field("downloader_id", &self.dler_id)
+      .field("file_id", &self.file_id)
       .field("length", &self.length)
       .finish()
   }
 }
 
 impl S3FileAsync {
-  pub async fn new(
-    bucket: String,
-    key: String,
+  pub fn new(
+    region: &str,
+    bucket: &str,
+    key: &str,
     length: u64,
-    client: Arc<S3Client>,
+    cache: Arc<RangeCache>,
   ) -> Self {
-    let downloader = S3Downloader {
-      bucket: bucket.clone(),
-      key: key.clone(),
-      client: Arc::clone(&client),
-    };
+    let dler_id = format!("s3::{}", region);
+    // if downloader not defined in range cache, add it
+    cache.register_downloader(&dler_id, || {
+      Arc::new(S3Downloader {
+        client: new_client(region),
+      })
+    });
     S3FileAsync {
-      bucket,
-      key,
+      region: region.to_owned(),
+      dler_id,
+      file_id: format!("{}/{}", bucket, key),
       length,
-      data: Arc::new(RangeCache::new(downloader).await),
+      cache,
     }
   }
 
   pub fn prefetch(&self, start: u64, length: usize) {
-    self.data.schedule(start, length);
+    self
+      .cache
+      .schedule(self.dler_id.clone(), self.file_id.clone(), start, length);
   }
 }
 
@@ -106,6 +112,11 @@ impl ChunkReader for S3FileAsync {
   type T = CachedRead;
 
   fn get_read(&self, start: u64, length: usize) -> parquet::errors::Result<Self::T> {
-    Ok(self.data.get(start, length).unwrap())
+    Ok(
+      self
+        .cache
+        .get(self.dler_id.clone(), self.file_id.clone(), start, length)
+        .unwrap(),
+    )
   }
 }

@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use std::time::Instant;
 
 use super::flight_client;
+use super::range_cache::RangeCache;
 use crate::datasource::HBeeTable;
 use crate::error::Result;
 use crate::internal_err;
@@ -12,16 +14,17 @@ use datafusion::physical_plan::{merge::MergeExec, ExecutionPlan};
 
 pub struct HBeeService {
     execution_context: ExecutionContext,
-    // s3: S3Service
+    range_cache: Arc<RangeCache>,
 }
 
 impl HBeeService {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let config = ExecutionConfig::new()
             .with_batch_size(2048)
             .with_concurrency(1);
         Self {
             execution_context: ExecutionContext::with_config(config),
+            range_cache: Arc::new(RangeCache::new().await),
         }
     }
 }
@@ -37,7 +40,7 @@ impl HBeeService {
         let start = Instant::now();
         let plan = self.execution_context.optimize(&plan)?;
         let hbee_table = utils::find_table::<HBeeTable>(&plan)?;
-        hbee_table.start_download().await;
+        hbee_table.set_cache(Arc::clone(&self.range_cache));
         let physical_plan = self.execution_context.create_physical_plan(&plan)?;
         // if necessary, merge the partitions
         println!(
