@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{fmt, thread};
 
-use crate::services::hbee::s3::S3FileAsync;
+use crate::clients::s3::S3FileAsync;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;

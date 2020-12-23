@@ -9,13 +9,6 @@ use rusoto_core::Region;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3Client, S3};
 use tokio::io::AsyncReadExt;
 
-//// S3 Client ////
-
-fn new_client(region: &str) -> Arc<S3Client> {
-  let region = Region::from_str(region).unwrap();
-  Arc::new(S3Client::new(region))
-}
-
 //// Implementation of the `download` function used by the range cache to fetch data
 
 #[derive(Clone)]
@@ -119,4 +112,11 @@ impl ChunkReader for S3FileAsync {
         .unwrap(),
     )
   }
+}
+
+//// S3 Client ////
+
+fn new_client(region: &str) -> Arc<S3Client> {
+  let region = Region::from_str(region).unwrap();
+  Arc::new(S3Client::new(region))
 }

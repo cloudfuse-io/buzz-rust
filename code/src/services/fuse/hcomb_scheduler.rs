@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use super::flight_client;
+use crate::clients::flight_client;
 use crate::error::Result;
 use crate::internal_err;
 use crate::models::HCombAddress;

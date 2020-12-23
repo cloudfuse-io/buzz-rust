@@ -38,10 +38,7 @@ docker-integ:
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml build
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml up --abort-on-container-exit
 
-example-df:
-	cd code; RUST_BACKTRACE=1 cargo run --example df_s3
-
-example-direct:
+example-direct-s3:
 	cd code; RUST_BACKTRACE=1 cargo run --example direct_s3
 
 init:

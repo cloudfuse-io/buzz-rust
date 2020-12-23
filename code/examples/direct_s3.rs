@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use buzz::services::hbee::{range_cache::RangeCache, s3::S3FileAsync};
+use buzz::clients::{s3::S3FileAsync, RangeCache};
 use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 
 async fn async_main() {
@@ -21,12 +21,11 @@ async fn async_main() {
 
     let reader =
         SerializedFileReader::new(file).expect("Failed to create serialized reader");
-    println!("{:?}", reader.metadata().num_row_groups())
+    println!("num_row_groups: {:?}", reader.metadata().num_row_groups())
 }
 
 fn main() {
-    let result = tokio::runtime::Runtime::new()
+    tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(async_main());
-    println!("Result:{:?}", result);
 }

@@ -2,10 +2,10 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use super::HBeeTable;
+use crate::clients::s3::S3FileAsync;
+use crate::clients::RangeCache;
 use crate::execution_plan::ParquetExec;
 use crate::models::SizedFile;
-use crate::services::hbee::range_cache::RangeCache;
-use crate::services::hbee::s3::S3FileAsync;
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;

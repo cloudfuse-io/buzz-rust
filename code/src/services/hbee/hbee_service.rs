@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use super::flight_client;
-use super::range_cache::RangeCache;
+use crate::clients::flight_client;
+use crate::clients::RangeCache;
 use crate::datasource::HBeeTable;
 use crate::error::Result;
 use crate::internal_err;
@@ -64,5 +64,3 @@ impl HBeeService {
         Ok(())
     }
 }
-
-// TODO implement

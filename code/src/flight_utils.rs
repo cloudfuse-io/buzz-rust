@@ -1,3 +1,5 @@
+//! Utils to convert flight objects to and from record batches
+
 use std::convert::TryFrom;
 use std::error::Error;
 use std::sync::Arc;

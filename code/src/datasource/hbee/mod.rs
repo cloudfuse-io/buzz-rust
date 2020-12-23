@@ -3,7 +3,7 @@ pub mod s3_parquet;
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::services::hbee::range_cache::RangeCache;
+use crate::clients::RangeCache;
 use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;

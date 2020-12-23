@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use buzz::models::HBeeEvent;
-use buzz::services::hbee::hbee_service::HBeeService;
+use buzz::services::hbee::HBeeService;
 use futures::StreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server};

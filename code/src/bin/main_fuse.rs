@@ -1,9 +1,7 @@
 use buzz::example_catalog;
 use buzz::models::query::{BuzzQuery, BuzzStep, BuzzStepType, HCombCapacity};
 use buzz::services::fuse::{
-    fuse_service::FuseService, hbee_scheduler::TestHBeeScheduler,
-    hcomb_manager::TestHCombManager, hcomb_scheduler::HttpHCombScheduler,
-    query_planner::QueryPlanner,
+    FuseService, HttpHCombScheduler, QueryPlanner, TestHBeeScheduler, TestHCombManager,
 };
 
 pub async fn start_fuse(

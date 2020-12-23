@@ -1,7 +1,9 @@
+pub mod clients;
 pub mod datasource;
 pub mod error;
 pub mod example_catalog;
 pub mod execution_plan;
+pub mod flight_utils;
 pub mod models;
 pub mod serde;
 pub mod services;

@@ -1,6 +1,11 @@
-pub mod flight_client;
-pub mod fuse_service;
-pub mod hbee_scheduler;
-pub mod hcomb_manager;
-pub mod hcomb_scheduler;
-pub mod query_planner;
+mod fuse_service;
+mod hbee_scheduler;
+mod hcomb_manager;
+mod hcomb_scheduler;
+mod query_planner;
+
+pub use fuse_service::FuseService;
+pub use hbee_scheduler::{HBeeScheduler, TestHBeeScheduler};
+pub use hcomb_manager::{HCombManager, TestHCombManager};
+pub use hcomb_scheduler::{HCombScheduler, HttpHCombScheduler};
+pub use query_planner::QueryPlanner;
