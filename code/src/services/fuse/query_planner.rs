@@ -139,3 +139,93 @@ impl QueryPlanner {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::datasource::{CatalogTable, HBeeTable, S3ParquetTable, SplittableTable};
+    use crate::models::SizedFile;
+    use arrow::datatypes::{Schema, SchemaRef};
+    use datafusion::datasource::datasource::Statistics;
+
+    #[tokio::test]
+    async fn test_simple_query() {
+        let mut planner = QueryPlanner::new();
+        let nb_split = 5;
+        planner.add_catalog(
+            "test",
+            CatalogTable::new(Box::new(MockSplittableTable(nb_split))),
+        );
+
+        let steps = vec![
+            BuzzStep {
+                sql: "SELECT * FROM test".to_owned(),
+                name: "mapper".to_owned(),
+                step_type: BuzzStepType::HBee,
+            },
+            BuzzStep {
+                sql: "SELECT * FROM mapper".to_owned(),
+                name: "reducer".to_owned(),
+                step_type: BuzzStepType::HComb,
+            },
+        ];
+
+        let plan_res = planner.plan("mock_query_id".to_owned(), steps, 1).await;
+        assert!(plan_res.is_ok(), "The planner failed on a simple query");
+        let plan = plan_res.unwrap();
+        assert_eq!(plan.zones.len(), 1);
+        assert_eq!(plan.zones[0].hbee.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_query_unknown_table() {
+        let mut planner = QueryPlanner::new();
+        let steps = vec![
+            BuzzStep {
+                sql: "SELECT * FROM test".to_owned(),
+                name: "mapper".to_owned(),
+                step_type: BuzzStepType::HBee,
+            },
+            BuzzStep {
+                sql: "SELECT * FROM mapper".to_owned(),
+                name: "reducer".to_owned(),
+                step_type: BuzzStepType::HComb,
+            },
+        ];
+
+        let plan_res = planner.plan("mock_query_id".to_owned(), steps, 1).await;
+        assert!(
+            plan_res.is_err(),
+            "The planner should have failed as the 'test' table is not defined"
+        );
+    }
+
+    //// Test Fixtures: ////
+
+    /// A SplittableTable that splits into (usize) S3Parquet tables
+    struct MockSplittableTable(usize);
+
+    impl SplittableTable for MockSplittableTable {
+        fn split(&self) -> Vec<HBeeTable> {
+            (0..self.0)
+                .map(|i| {
+                    S3ParquetTable::new(
+                        "north-pole-1".to_owned(),
+                        "santas-bucket".to_owned(),
+                        vec![SizedFile {
+                            key: format!("gift_{}", i),
+                            length: 999999999,
+                        }],
+                        Arc::new(Schema::empty()),
+                    )
+                })
+                .collect::<Vec<_>>()
+        }
+        fn schema(&self) -> SchemaRef {
+            Arc::new(Schema::empty())
+        }
+        fn statistics(&self) -> Statistics {
+            Statistics::default()
+        }
+    }
+}

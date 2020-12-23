@@ -10,7 +10,7 @@ use crate::models::query::BuzzQuery;
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
 use chrono::Utc;
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use tokio::join;
 
 pub struct FuseService {
@@ -62,37 +62,38 @@ impl FuseService {
         }
 
         // connect to the hcombs to init the query and get result handle
-        // TODO connect in //
-        let mut result_streams = vec![];
         println!("[fuse] schedule hcombs");
-        for i in 0..plan.zones.len() {
-            let batch_stream = self
-                .hcomb_scheduler
+        let future_hcombs = (0..plan.zones.len()).map(|i| {
+            self.hcomb_scheduler
                 .schedule(&addresses[i], plan.zones[i].hcomb.clone())
-                .await?;
-            result_streams.push(batch_stream);
-        }
+        });
+        let hcomb_streams = futures::stream::iter(future_hcombs)
+            .buffer_unordered(10)
+            .try_collect::<Vec<_>>()
+            .await?;
+
         // when hcombs are ready, start hbees!
         // TODO start sending to combs as soon as they are ready
         // TODO alternate between combs?
-        // TODO schedule multiple in //
         println!("[fuse] schedule hbees");
-        for i in 0..plan.zones.len() {
-            for j in 0..plan.zones[i].hbee.len() {
-                self.hbee_scheduler
-                    .schedule(
-                        query_id.clone(),
-                        &addresses[i],
-                        plan.zones[i].hbee[j].clone(),
-                    )
-                    .await?;
-            }
-        }
+        let future_hbees = (0..plan.zones.len())
+            .flat_map(|i| (0..plan.zones[i].hbee.len()).map(move |j| (i, j)))
+            .map(|(i, j)| {
+                self.hbee_scheduler.schedule(
+                    query_id.clone(),
+                    &addresses[i],
+                    plan.zones[i].hbee[j].clone(),
+                )
+            });
+        futures::stream::iter(future_hbees)
+            .buffer_unordered(10)
+            .try_collect::<Vec<_>>()
+            .await?;
 
         // wait for hcombs to collect all the results and desplay them comb by comb
         println!("[fuse] collect hcombs");
-        for result_stream in result_streams {
-            let result: Vec<RecordBatch> = result_stream.collect::<Vec<_>>().await;
+        for hcomb_stream in hcomb_streams {
+            let result: Vec<RecordBatch> = hcomb_stream.collect::<Vec<_>>().await;
             pretty::print_batches(&result).unwrap();
         }
 

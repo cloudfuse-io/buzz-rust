@@ -52,4 +52,4 @@ impl HBeeScheduler for TestHBeeScheduler {
 }
 
 // TODO implementations:
-// TODO - for lambd
+// TODO - for lambda

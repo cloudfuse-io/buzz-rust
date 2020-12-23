@@ -263,7 +263,7 @@ mod tests {
         assert_eq!(content.unwrap(), pattern(0, 50));
     }
 
-    //// helpers ////
+    //// Test Fixtures: ////
 
     /// A downloader that returns a simple pattern (1,2,3...254,255,1,2...)
     /// Waits for 10ms before returning its result to trigger cache misses
