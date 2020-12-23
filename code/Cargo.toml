@@ -51,6 +51,8 @@ prost = "0.6"
 prost-types = "0.6"
 hyper = { version = "0.13.4", features = ["stream"] }
 base64 = { version = "0.13.0" }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.2", features=["json"] }
 
 [build-dependencies]
 prost-build = { version = "0.6.1" }
