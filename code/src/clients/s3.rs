@@ -3,7 +3,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::range_cache::{CachedRead, Downloader, RangeCache};
+use crate::error::{BuzzError, Result};
 use async_trait::async_trait;
+use parquet::errors::{ParquetError, Result as ParquetResult};
 use parquet::file::reader::{ChunkReader, Length};
 use rusoto_core::Region;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3Client, S3};
@@ -18,7 +20,12 @@ struct S3Downloader {
 
 #[async_trait]
 impl Downloader for S3Downloader {
-  async fn download(&self, file_id: String, start: u64, length: usize) -> Vec<u8> {
+  async fn download(
+    &self,
+    file_id: String,
+    start: u64,
+    length: usize,
+  ) -> Result<Vec<u8>> {
     let mut file_id_split = file_id.split("/");
     let range = format!("bytes={}-{}", start, start + length as u64 - 1);
     let get_obj_req = GetObjectRequest {
@@ -31,15 +38,21 @@ impl Downloader for S3Downloader {
       .client
       .get_object(get_obj_req)
       .await
-      .expect("get failed");
+      .map_err(|e| BuzzError::Download(format!("{}", e)))?;
     let mut reader = obj.body.unwrap().into_async_read();
     let mut res = vec![];
     res.reserve(length);
-    let bytes_read = reader.read_to_end(&mut res).await.unwrap();
+    let bytes_read = reader
+      .read_to_end(&mut res)
+      .await
+      .map_err(|e| BuzzError::Download(format!("{}", e)))?;
     if bytes_read != length {
-      panic!("Not the expected number of bytes");
+      Err(BuzzError::Download(
+        "Not the expected number of bytes".to_owned(),
+      ))
+    } else {
+      Ok(res)
     }
-    res
   }
 }
 
@@ -104,13 +117,11 @@ impl Length for S3FileAsync {
 impl ChunkReader for S3FileAsync {
   type T = CachedRead;
 
-  fn get_read(&self, start: u64, length: usize) -> parquet::errors::Result<Self::T> {
-    Ok(
-      self
-        .cache
-        .get(self.dler_id.clone(), self.file_id.clone(), start, length)
-        .unwrap(),
-    )
+  fn get_read(&self, start: u64, length: usize) -> ParquetResult<Self::T> {
+    self
+      .cache
+      .get(self.dler_id.clone(), self.file_id.clone(), start, length)
+      .map_err(|e| ParquetError::General(format!("{}", e)))
   }
 }
 

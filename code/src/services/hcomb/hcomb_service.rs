@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use super::results_service::ResultsService;
 use crate::datasource::HCombTable;
-use crate::error::Result;
+use crate::error::{BuzzError, Result};
 use crate::internal_err;
 use crate::services::utils;
+use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::logical_plan::LogicalPlan;
@@ -60,12 +61,25 @@ impl HCombService {
     pub async fn add_results(
         &self,
         query_id: &str,
-        batches: impl Stream<Item = RecordBatch>,
+        batches: impl Stream<Item = ArrowResult<RecordBatch>>,
     ) {
         let mut batches = Box::pin(batches);
+        let mut has_err = false;
         while let Some(batch) = batches.next().await {
+            if batch.is_err() {
+                has_err = true;
+            }
             self.results_service.add_result(&query_id, batch);
         }
-        self.results_service.task_finished(&query_id);
+        if !has_err {
+            self.results_service.task_finished(&query_id);
+        }
+    }
+
+    pub fn fail(&self, query_id: &str, err: BuzzError) {
+        self.results_service.add_result(
+            query_id,
+            Err(ArrowError::from_external_error(Box::new(err))),
+        );
     }
 }

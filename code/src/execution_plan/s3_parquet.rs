@@ -70,7 +70,7 @@ impl ParquetExec {
         tokio::task::spawn_blocking(move || {
             let file_reader = Arc::new(
                 SerializedFileReader::new(file.clone())
-                    .expect("Failed to create serialized reader"),
+                    .map_err(|e| DataFusionError::ParquetError(e))?,
             );
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader.clone());
 
@@ -186,7 +186,7 @@ fn read_file(
     // TODO avoid footing being parsed twice here
     let file_reader = Arc::new(
         SerializedFileReader::new(file.clone())
-            .expect("Failed to create serialized reader"),
+            .map_err(|e| DataFusionError::ParquetError(e))?,
     );
     let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
     let mut batch_reader =

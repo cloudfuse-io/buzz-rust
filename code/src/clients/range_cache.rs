@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{self, Read};
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
+use crate::error::{BuzzError, Result};
 use crate::{ensure, internal_err};
 use async_trait::async_trait;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -35,12 +35,18 @@ impl Read for CachedRead {
 enum Download {
     Pending,
     Done(Arc<Vec<u8>>),
+    Error(String),
 }
 
 /// An "all or nothing" representation of the download.
 #[async_trait]
 pub trait Downloader: Send + Sync {
-    async fn download(&self, file_id: String, start: u64, length: usize) -> Vec<u8>;
+    async fn download(
+        &self,
+        file_id: String,
+        start: u64,
+        length: usize,
+    ) -> Result<Vec<u8>>;
 }
 
 type DownloaderId = String;
@@ -100,7 +106,7 @@ impl RangeCache {
                         downloader = Arc::clone(downloader_ref);
                     }
                     // download using that ref
-                    let downloaded_chunk = downloader
+                    let downloaded_res = downloader
                         .download(message.1.clone(), message.2, message.3)
                         .await;
                     pool_ref.add_permits(1);
@@ -109,8 +115,19 @@ impl RangeCache {
                     let file_map = data_guard
                         .entry((message.0, message.1))
                         .or_insert_with(|| BTreeMap::new());
-                    file_map
-                        .insert(message.2, Download::Done(Arc::new(downloaded_chunk)));
+                    match downloaded_res {
+                        Ok(downloaded_chunk) => {
+                            file_map.insert(
+                                message.2,
+                                Download::Done(Arc::new(downloaded_chunk)),
+                            );
+                        }
+                        Err(err) => {
+                            // TODO Avoid casting err to string (needed to make it cloneable)
+                            file_map
+                                .insert(message.2, Download::Error(format!("{}", err)));
+                        }
+                    }
                     cv_ref.notify_all();
                 });
             }
@@ -200,6 +217,7 @@ impl RangeCache {
                     remaining: length as u64,
                 })
             }
+            Download::Error(err) => Err(BuzzError::Download(err.to_owned())),
             Download::Pending => unreachable!(),
         }
     }
@@ -271,9 +289,14 @@ mod tests {
 
     #[async_trait]
     impl Downloader for MockDownloader {
-        async fn download(&self, _file: String, _start: u64, length: usize) -> Vec<u8> {
+        async fn download(
+            &self,
+            _file: String,
+            _start: u64,
+            length: usize,
+        ) -> Result<Vec<u8>> {
             tokio::time::delay_for(Duration::from_millis(10)).await;
-            pattern(0, length)
+            Ok(pattern(0, length))
         }
     }
 

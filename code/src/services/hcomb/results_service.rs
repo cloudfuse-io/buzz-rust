@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use tokio::stream::Stream;
 use tokio::sync::mpsc;
 
 struct IntermediateRes {
-    tx: Option<mpsc::UnboundedSender<RecordBatch>>,
+    tx: Option<mpsc::UnboundedSender<ArrowResult<RecordBatch>>>,
     remaining_tasks: usize,
 }
 
@@ -25,7 +26,7 @@ impl ResultsService {
         &self,
         query_id: String,
         nb_hbees: usize,
-    ) -> impl Stream<Item = RecordBatch> {
+    ) -> impl Stream<Item = ArrowResult<RecordBatch>> {
         let (tx, rx) = mpsc::unbounded_channel();
         {
             let mut sender_map_guard = self.tx_map.lock().unwrap();
@@ -40,15 +41,21 @@ impl ResultsService {
         rx
     }
 
-    pub fn add_result(&self, query_id: &str, data: RecordBatch) {
+    pub fn add_result(&self, query_id: &str, data: ArrowResult<RecordBatch>) {
         let sender_map = self.tx_map.lock().unwrap();
         let res_opt = sender_map.get(query_id);
         match res_opt {
             Some(res) => {
-                res.tx.as_ref().unwrap().send(data).unwrap();
+                let send_res = res.tx.as_ref().unwrap().send(data);
+                if send_res.is_err() {
+                    println!("[hcomb] Result chan closed because query '{}' failed, ignoring result", query_id);
+                }
             }
             None => {
-                println!("Query '{}' not registered in IntermediateResults", query_id);
+                println!(
+                    "[hcomb] Query '{}' not registered in IntermediateResults",
+                    query_id
+                );
             }
         }
     }
@@ -64,7 +71,10 @@ impl ResultsService {
                 }
             }
             None => {
-                println!("Query '{}' not registered in IntermediateResults", query_id);
+                println!(
+                    "[hcomb] Query '{}' not registered in IntermediateResults",
+                    query_id
+                );
             }
         }
     }

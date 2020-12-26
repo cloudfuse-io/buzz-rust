@@ -4,6 +4,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use super::hcomb_service::HCombService;
+use crate::error::BuzzError;
 use crate::flight_utils;
 use crate::protobuf::LogicalPlanNode;
 use arrow_flight::flight_service_server::FlightServiceServer;
@@ -13,7 +14,7 @@ use arrow_flight::{
     PutResult, SchemaResult, Ticket,
 };
 use datafusion::logical_plan::LogicalPlan;
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use prost::Message;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
@@ -95,10 +96,9 @@ impl FlightService for FlightServiceImpl {
             .await
             .map_err(|e| Status::internal(format!("Query failed: {}", e)))?;
         // serialize response
-        let flights = flight_utils::batches_to_flight(&results.0, results.1)
+        let flights = flight_utils::batch_stream_to_flight(&results.0, results.1)
             .await
-            .map_err(|_| Status::internal("Plan could not be converted into flight"))?
-            .map(|flt| Ok(flt));
+            .map_err(|_| Status::internal("Plan could not be converted into flight"))?;
         Ok(Response::new(Box::pin(flights)))
     }
 
@@ -140,9 +140,19 @@ impl FlightService for FlightServiceImpl {
 
     async fn do_action(
         &self,
-        _request: Request<Action>,
+        request: Request<Action>,
     ) -> Result<Response<Self::DoActionStream>, Status> {
-        Err(Status::unimplemented("Not yet implemented"))
+        let action = request.into_inner();
+        if action.r#type == "FAIL" {
+            // TODO transfer error content from the caller
+            let query_id = String::from_utf8(action.body).unwrap();
+            self.hcomb_service
+                .fail(&query_id, BuzzError::HBee("FAIL action called".to_owned()));
+            let output = futures::stream::empty();
+            Ok(Response::new(Box::pin(output) as Self::DoActionStream))
+        } else {
+            Err(Status::unimplemented("Not yet implemented"))
+        }
     }
 
     async fn list_actions(

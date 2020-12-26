@@ -12,7 +12,6 @@ pub type Result<T> = result::Result<T, BuzzError>;
 
 /// Buzz error
 #[derive(Debug)]
-#[allow(missing_docs)]
 pub enum BuzzError {
     /// Error returned by arrow.
     ArrowError(ArrowError),
@@ -37,6 +36,10 @@ pub enum BuzzError {
     /// Error returned during execution of the query.
     /// Examples include files not found, errors in parsing certain types.
     Execution(String),
+    /// Error returned when hbee failed
+    HBee(String),
+    /// Error when downloading data from an external source
+    Download(String),
 }
 
 /// Creates an Internal error from a formatted string
@@ -126,6 +129,14 @@ impl Display for BuzzError {
             }
             BuzzError::Execution(ref desc) => {
                 write!(f, "Execution error: {}", desc)
+            }
+            BuzzError::HBee(ref desc) => {
+                // TODO the actual error from the bee should be transfered instead
+                // e.g the Download error
+                write!(f, "HBee error: {}", desc)
+            }
+            BuzzError::Download(ref desc) => {
+                write!(f, "Download error: {}", desc)
             }
         }
     }
