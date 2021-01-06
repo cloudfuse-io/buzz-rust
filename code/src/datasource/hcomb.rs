@@ -9,6 +9,7 @@ use arrow::record_batch::RecordBatch;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
+use datafusion::logical_plan::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use futures::Stream;
 
@@ -58,6 +59,7 @@ impl TableProvider for HCombTable {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match self.stream.lock().unwrap().take() {
             Some(stream) => Ok(Arc::new(StreamExec::new(

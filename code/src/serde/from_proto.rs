@@ -6,7 +6,6 @@ use crate::error::BuzzError;
 use crate::internal_err;
 use crate::models::SizedFile;
 use crate::protobuf;
-use arrow::datatypes::Schema;
 use arrow::ipc::convert;
 use datafusion::datasource::TableProvider;
 use datafusion::logical_plan::{
@@ -74,10 +73,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
             // let mut schema: Arc<Schema>;
             let provider: Arc<dyn TableProvider + Send + Sync> = match scan {
                 protobuf::logical_plan_node::Scan::S3Parquet(scan_node) => {
-                    let schema: Schema = convert::schema_from_bytes(&scan_node.schema)
-                        .ok_or_else(|| {
-                            internal_err!("Unable to convert flight data to Arrow schema")
-                        })?;
+                    let schema = convert::schema_from_bytes(&scan_node.schema)?;
                     let provider = S3ParquetTable::new(
                         scan_node.region.to_owned(),
                         scan_node.bucket.to_owned(),
@@ -94,10 +90,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                     Arc::new(provider)
                 }
                 protobuf::logical_plan_node::Scan::Result(scan_node) => {
-                    let schema: Schema = convert::schema_from_bytes(&scan_node.schema)
-                        .ok_or_else(|| {
-                            internal_err!("Unable to convert flight data to Arrow schema")
-                        })?;
+                    let schema = convert::schema_from_bytes(&scan_node.schema)?;
                     let provider = HCombTable::new(
                         scan_node.query_id.to_owned(),
                         scan_node.nb_hbee as usize,
@@ -107,13 +100,14 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 }
             };
 
-            // TODO: projection does not seem to be right
+            // TODO: projection and filters do not seem to be right
             let projected_schema = provider.schema().to_dfschema_ref()?;
             Ok(LogicalPlan::TableScan {
                 table_name: "".to_string(),
                 source: provider,
                 projected_schema,
                 projection: None,
+                filters: vec![],
             })
         } else {
             Err(internal_err!("Unsupported logical plan '{:?}'", self))

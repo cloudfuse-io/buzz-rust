@@ -26,10 +26,10 @@ path = "src/bin/main_fuse.rs"
 
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "6fafedf", feature=["prettyprint"] }
-parquet = { git = "https://github.com/apache/arrow", rev = "6fafedf" }
-datafusion = { git = "https://github.com/apache/arrow", rev = "6fafedf" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev = "6fafedf" }
+arrow = { git = "https://github.com/apache/arrow", rev = "d61e185", feature=["prettyprint"] }
+parquet = { git = "https://github.com/apache/arrow", rev = "d61e185" }
+datafusion = { git = "https://github.com/apache/arrow", rev = "d61e185" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev = "d61e185" }
 
 # arrow = { path = "../../arrow/rust/arrow", feature=["prettyprint"] }
 # parquet = { path = "../../arrow/rust/parquet" }

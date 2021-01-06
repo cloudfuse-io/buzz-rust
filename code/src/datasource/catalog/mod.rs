@@ -6,6 +6,7 @@ use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
+use datafusion::logical_plan::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 
 /// A specific type of TableProvider that cannot be converted to a physical plan
@@ -44,6 +45,7 @@ impl TableProvider for CatalogTable {
         &self,
         _projection: &Option<Vec<usize>>,
         _batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Err(DataFusionError::Plan(
             "Catalog table cannot generate an execution plan".to_owned(),

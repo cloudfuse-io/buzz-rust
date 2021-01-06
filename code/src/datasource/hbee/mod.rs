@@ -8,6 +8,7 @@ use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
+use datafusion::logical_plan::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use s3_parquet::S3ParquetTable;
 
@@ -40,9 +41,10 @@ impl TableProvider for HBeeTable {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match self {
-            HBeeTable::S3Parquet(table) => table.scan(projection, batch_size),
+            HBeeTable::S3Parquet(table) => table.scan(projection, batch_size, filters),
         }
     }
 

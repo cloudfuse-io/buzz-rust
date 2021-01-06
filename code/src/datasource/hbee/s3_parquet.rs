@@ -10,6 +10,7 @@ use arrow::datatypes::*;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
+use datafusion::logical_plan::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 
 /// Table-based representation of a `ParquetFile` backed by S3.
@@ -68,6 +69,7 @@ impl TableProvider for S3ParquetTable {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let cache_guard = self.cache.lock().unwrap();
         let cache =

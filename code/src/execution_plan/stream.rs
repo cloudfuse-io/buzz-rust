@@ -154,7 +154,7 @@ mod tests {
             batches.clone().into_iter().map(|b| Ok(b)),
         )));
 
-        let exec_plan = hcomb_table.scan(&None, 1024)?;
+        let exec_plan = hcomb_table.scan(&None, 1024, &[])?;
 
         let results = datafusion::physical_plan::collect(exec_plan).await?;
         assert_eq!(results.len(), 1);
@@ -168,7 +168,7 @@ mod tests {
         let hcomb_table = HCombTable::new("mock_query_id".to_owned(), 1, schema.clone());
         hcomb_table.set(Box::pin(futures::stream::iter(vec![])));
 
-        let exec_plan = hcomb_table.scan(&Some(vec![0]), 2048)?;
+        let exec_plan = hcomb_table.scan(&Some(vec![0]), 2048, &[])?;
 
         let results = datafusion::physical_plan::collect(exec_plan).await?;
         assert_eq!(results.len(), 0);
