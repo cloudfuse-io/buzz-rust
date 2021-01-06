@@ -6,7 +6,7 @@ use crate::clients::RangeCache;
 use crate::datasource::HBeeTable;
 use crate::error::Result;
 use crate::internal_err;
-use crate::models::HCombAddress;
+use crate::models::{actions::ActionType, HCombAddress};
 use crate::services::utils;
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
@@ -45,11 +45,14 @@ impl HBeeService {
                 .await
                 .map_err(|e| internal_err!("Could not do_put hbee result: {}", e)),
             Err(query_err) => {
-                flight_client::call_do_action(query_id, &address, "FAIL".to_owned())
-                    .await
-                    .map_err(|e| {
-                        internal_err!("Could not do_action(FAIL) hbee: {}", e)
-                    })?;
+                flight_client::call_do_action(
+                    query_id,
+                    &address,
+                    ActionType::Fail,
+                    format!("{}", query_err),
+                )
+                .await
+                .map_err(|e| internal_err!("Could not do_action(FAIL) hbee: {}", e))?;
                 Err(query_err)
             }
         };

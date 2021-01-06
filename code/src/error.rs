@@ -80,6 +80,21 @@ impl BuzzError {
     pub fn internal(reason: &'static str) -> Self {
         return Self::Internal(reason.to_owned());
     }
+
+    pub fn reason(&self) -> String {
+        match *self {
+            BuzzError::ArrowError(ref desc) => format!("{}", desc),
+            BuzzError::ParquetError(ref desc) => format!("{}", desc),
+            BuzzError::DataFusionError(ref desc) => format!("{}", desc),
+            BuzzError::IoError(ref desc) => format!("{}", desc),
+            BuzzError::NotImplemented(ref desc) => format!("{}", desc),
+            BuzzError::Internal(ref desc) => format!("{}", desc),
+            BuzzError::Plan(ref desc) => format!("{}", desc),
+            BuzzError::Execution(ref desc) => format!("{}", desc),
+            BuzzError::HBee(ref desc) => format!("{}", desc),
+            BuzzError::Download(ref desc) => format!("{}", desc),
+        }
+    }
 }
 
 impl From<io::Error> for BuzzError {

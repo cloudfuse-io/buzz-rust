@@ -121,7 +121,10 @@ impl ChunkReader for S3FileAsync {
     self
       .cache
       .get(self.dler_id.clone(), self.file_id.clone(), start, length)
-      .map_err(|e| ParquetError::General(format!("{}", e)))
+      .map_err(|e| match e {
+        BuzzError::ParquetError(err) => err,
+        err => ParquetError::General(format!("{}", err)),
+      })
   }
 }
 

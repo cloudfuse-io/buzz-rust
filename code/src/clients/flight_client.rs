@@ -3,7 +3,8 @@ use std::error::Error;
 use std::pin::Pin;
 
 use crate::flight_utils;
-use crate::models::HCombAddress;
+use crate::internal_err;
+use crate::models::{actions, HCombAddress};
 use crate::protobuf::LogicalPlanNode;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
@@ -61,12 +62,19 @@ pub async fn call_do_put(
 pub async fn call_do_action(
     query_id: String,
     address: &HCombAddress,
-    action_type: String,
+    action_type: actions::ActionType,
+    reason: String,
 ) -> Result<(), Box<dyn Error>> {
-    let action = arrow_flight::Action {
-        body: query_id.as_bytes().to_owned(),
-        r#type: action_type,
+    let action = match action_type {
+        actions::ActionType::Fail => arrow_flight::Action {
+            body: serde_json::to_vec(&actions::Fail { query_id, reason }).unwrap(),
+            r#type: action_type.to_string(),
+        },
+        actions::ActionType::Unknown => {
+            return Err(Box::new(internal_err!("Unexpected action type")))
+        }
     };
+
     let request = tonic::Request::new(action);
 
     let mut client = FlightServiceClient::connect(address.clone()).await?;

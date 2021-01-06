@@ -6,6 +6,7 @@ use std::sync::Arc;
 use super::hcomb_service::HCombService;
 use crate::error::BuzzError;
 use crate::flight_utils;
+use crate::models::actions;
 use crate::protobuf::LogicalPlanNode;
 use arrow_flight::flight_service_server::FlightServiceServer;
 use arrow_flight::{
@@ -143,15 +144,23 @@ impl FlightService for FlightServiceImpl {
         request: Request<Action>,
     ) -> Result<Response<Self::DoActionStream>, Status> {
         let action = request.into_inner();
-        if action.r#type == "FAIL" {
-            // TODO transfer error content from the caller
-            let query_id = String::from_utf8(action.body).unwrap();
-            self.hcomb_service
-                .fail(&query_id, BuzzError::HBee("FAIL action called".to_owned()));
-            let output = futures::stream::empty();
-            Ok(Response::new(Box::pin(output) as Self::DoActionStream))
-        } else {
-            Err(Status::unimplemented("Not yet implemented"))
+        match actions::ActionType::from_string(action.r#type) {
+            actions::ActionType::Fail => {
+                let fail_action: actions::Fail =
+                    serde_json::from_slice(&action.body).unwrap();
+                self.hcomb_service.fail(
+                    &fail_action.query_id,
+                    BuzzError::HBee(format!(
+                        "FAIL action called: {}",
+                        &fail_action.reason
+                    )),
+                );
+                let output = futures::stream::empty();
+                Ok(Response::new(Box::pin(output) as Self::DoActionStream))
+            }
+            actions::ActionType::Unknown => {
+                Err(Status::unimplemented("Not yet implemented"))
+            }
         }
     }
 

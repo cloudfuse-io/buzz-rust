@@ -123,9 +123,7 @@ impl RangeCache {
                             );
                         }
                         Err(err) => {
-                            // TODO Avoid casting err to string (needed to make it cloneable)
-                            file_map
-                                .insert(message.2, Download::Error(format!("{}", err)));
+                            file_map.insert(message.2, Download::Error(err.reason()));
                         }
                     }
                     cv_ref.notify_all();

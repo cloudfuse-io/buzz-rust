@@ -10,7 +10,7 @@ use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use async_trait::async_trait;
-use datafusion::error::{DataFusionError, Result};
+use datafusion::error::{DataFusionError, Result as DataFusionResult};
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::physical_plan::Partitioning;
 use datafusion::physical_plan::{RecordBatchStream, SendableRecordBatchStream};
@@ -60,7 +60,7 @@ impl ParquetExec {
     }
 
     /// Read the footer and schedule the downloads of all the required chunks
-    async fn init_file(&self, partition: usize) -> Result<()> {
+    async fn init_file(&self, partition: usize) -> DataFusionResult<()> {
         Self::download_footer(self.files[partition].clone());
         let file_schema = self.file_schema.clone();
         let file = self.files[partition].clone();
@@ -130,7 +130,7 @@ impl ExecutionPlan for ParquetExec {
     fn with_new_children(
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
+    ) -> DataFusionResult<Arc<dyn ExecutionPlan>> {
         if children.is_empty() {
             Ok(Arc::new(self.clone()))
         } else {
@@ -141,7 +141,10 @@ impl ExecutionPlan for ParquetExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+    async fn execute(
+        &self,
+        partition: usize,
+    ) -> DataFusionResult<SendableRecordBatchStream> {
         self.init_file(partition).await?;
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
@@ -170,7 +173,7 @@ impl ExecutionPlan for ParquetExec {
 fn send_result(
     response_tx: &SyncSender<Option<ArrowResult<RecordBatch>>>,
     result: Option<ArrowResult<RecordBatch>>,
-) -> Result<()> {
+) -> DataFusionResult<()> {
     response_tx
         .send(result)
         .map_err(|e| DataFusionError::Execution(e.to_string()))?;
@@ -182,7 +185,7 @@ fn read_file(
     projection: Vec<usize>,
     batch_size: usize,
     response_tx: SyncSender<Option<ArrowResult<RecordBatch>>>,
-) -> Result<()> {
+) -> DataFusionResult<()> {
     // TODO avoid footing being parsed twice here
     let file_reader = Arc::new(
         SerializedFileReader::new(file.clone())
