@@ -93,7 +93,7 @@ impl FuseService {
         // wait for hcombs to collect all the results and desplay them comb by comb
         println!("[fuse] collect hcombs");
         for hcomb_stream in hcomb_streams {
-            let result: Vec<RecordBatch> = hcomb_stream.collect::<Vec<_>>().await;
+            let result: Vec<RecordBatch> = hcomb_stream.try_collect::<Vec<_>>().await?;
             pretty::print_batches(&result).unwrap();
         }
 

@@ -17,7 +17,7 @@ use futures::stream::Stream;
 use pin_project::pin_project;
 
 pub struct StreamExec {
-    stream: Mutex<Option<Pin<Box<dyn Stream<Item = RecordBatch> + Send>>>>,
+    stream: Mutex<Option<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>>>,
     schema: SchemaRef,
 
     projection: Vec<usize>,
@@ -36,7 +36,7 @@ impl fmt::Debug for StreamExec {
 
 impl StreamExec {
     pub fn new(
-        stream: Pin<Box<dyn Stream<Item = RecordBatch> + Send>>,
+        stream: Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>,
         schema: SchemaRef,
         projection: Option<Vec<usize>>,
         batch_size: usize,
@@ -111,7 +111,7 @@ struct StreamStream<St> {
     stream: St,
 }
 
-impl<St: Stream<Item = RecordBatch>> Stream for StreamStream<St> {
+impl<St: Stream<Item = ArrowResult<RecordBatch>>> Stream for StreamStream<St> {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
@@ -120,7 +120,7 @@ impl<St: Stream<Item = RecordBatch>> Stream for StreamStream<St> {
     ) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
         let inner_res = this.stream.as_mut().poll_next(ctx);
-        inner_res.map(|opt| opt.map(|item| Ok(item)))
+        inner_res
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -128,7 +128,7 @@ impl<St: Stream<Item = RecordBatch>> Stream for StreamStream<St> {
     }
 }
 
-impl<St: Stream<Item = RecordBatch>> RecordBatchStream for StreamStream<St> {
+impl<St: Stream<Item = ArrowResult<RecordBatch>>> RecordBatchStream for StreamStream<St> {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -150,7 +150,9 @@ mod tests {
             schema.clone(),
             vec![Arc::new(Int32Array::from(vec![1, 2, 3]))],
         )?];
-        hcomb_table.set(Box::pin(futures::stream::iter(batches.clone())));
+        hcomb_table.set(Box::pin(futures::stream::iter(
+            batches.clone().into_iter().map(|b| Ok(b)),
+        )));
 
         let exec_plan = hcomb_table.scan(&None, 1024)?;
 

@@ -4,6 +4,7 @@ use crate::clients::flight_client;
 use crate::error::Result;
 use crate::internal_err;
 use crate::models::HCombAddress;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use async_trait::async_trait;
 use datafusion::logical_plan::LogicalPlan;
@@ -16,7 +17,7 @@ pub trait HCombScheduler {
         &self,
         address: &HCombAddress,
         plan: LogicalPlan,
-    ) -> Result<Pin<Box<dyn Stream<Item = RecordBatch>>>>;
+    ) -> Result<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>>>>>;
 }
 
 pub struct HttpHCombScheduler;
@@ -27,7 +28,7 @@ impl HCombScheduler for HttpHCombScheduler {
         &self,
         address: &HCombAddress,
         plan: LogicalPlan,
-    ) -> Result<Pin<Box<dyn Stream<Item = RecordBatch>>>> {
+    ) -> Result<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>>>>> {
         flight_client::call_do_get(address, plan)
             .await
             .map_err(|e| internal_err!("Could not get result from HComb: {}", e))

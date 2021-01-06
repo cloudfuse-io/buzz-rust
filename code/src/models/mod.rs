@@ -1,5 +1,6 @@
 //! Models are entities that are common to services
 
+pub mod actions;
 mod hbee_event;
 pub mod query;
 

@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::execution_plan::StreamExec;
 use arrow::datatypes::*;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
@@ -12,7 +13,7 @@ use datafusion::physical_plan::ExecutionPlan;
 use futures::Stream;
 
 pub struct HCombTable {
-    stream: Mutex<Option<Pin<Box<dyn Stream<Item = RecordBatch> + Send>>>>,
+    stream: Mutex<Option<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>>>,
     query_id: String,
     nb_hbee: usize,
     schema: SchemaRef,
@@ -36,7 +37,10 @@ impl HCombTable {
         self.nb_hbee
     }
 
-    pub fn set(&self, stream: Pin<Box<dyn Stream<Item = RecordBatch> + Send>>) {
+    pub fn set(
+        &self,
+        stream: Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>,
+    ) {
         self.stream.lock().unwrap().replace(stream);
     }
 }

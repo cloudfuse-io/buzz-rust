@@ -3,13 +3,14 @@ use std::error::Error;
 use std::pin::Pin;
 
 use crate::flight_utils;
-use crate::models::HCombAddress;
+use crate::internal_err;
+use crate::models::{actions, HCombAddress};
 use crate::protobuf::LogicalPlanNode;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use arrow_flight::flight_service_client::FlightServiceClient;
 use arrow_flight::Ticket;
 use datafusion::logical_plan::LogicalPlan;
-use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::Stream;
 use futures::StreamExt;
 use prost::Message;
@@ -18,7 +19,7 @@ use prost::Message;
 pub async fn call_do_get(
     address: &HCombAddress,
     plan: LogicalPlan,
-) -> Result<Pin<Box<dyn Stream<Item = RecordBatch>>>, Box<dyn Error>> {
+) -> Result<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>>>>, Box<dyn Error>> {
     // Create Flight client
     let mut client = FlightServiceClient::connect(address.clone()).await?;
 
@@ -37,12 +38,12 @@ pub async fn call_do_get(
 pub async fn call_do_put(
     query_id: String,
     address: &HCombAddress,
-    results: SendableRecordBatchStream,
+    results: Vec<RecordBatch>,
 ) -> Result<(), Box<dyn Error>> {
     // Create Flight client after delay, to leave time for the server to boot
     tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
 
-    let input = flight_utils::batches_to_flight(&query_id, results).await?;
+    let input = flight_utils::batch_vec_to_flight(&query_id, results).await?;
 
     let request = tonic::Request::new(input);
 
@@ -50,6 +51,36 @@ pub async fn call_do_put(
     // wait for the response to be complete but don't do anything with it
     client
         .do_put(request)
+        .await?
+        .into_inner()
+        .collect::<Vec<_>>()
+        .await;
+
+    Ok(())
+}
+
+pub async fn call_do_action(
+    query_id: String,
+    address: &HCombAddress,
+    action_type: actions::ActionType,
+    reason: String,
+) -> Result<(), Box<dyn Error>> {
+    let action = match action_type {
+        actions::ActionType::Fail => arrow_flight::Action {
+            body: serde_json::to_vec(&actions::Fail { query_id, reason }).unwrap(),
+            r#type: action_type.to_string(),
+        },
+        actions::ActionType::Unknown => {
+            return Err(Box::new(internal_err!("Unexpected action type")))
+        }
+    };
+
+    let request = tonic::Request::new(action);
+
+    let mut client = FlightServiceClient::connect(address.clone()).await?;
+    // wait for the response to be complete but don't do anything with it
+    client
+        .do_action(request)
         .await?
         .into_inner()
         .collect::<Vec<_>>()

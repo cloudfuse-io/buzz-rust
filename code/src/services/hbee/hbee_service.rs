@@ -6,8 +6,9 @@ use crate::clients::RangeCache;
 use crate::datasource::HBeeTable;
 use crate::error::Result;
 use crate::internal_err;
-use crate::models::HCombAddress;
+use crate::models::{actions::ActionType, HCombAddress};
 use crate::services::utils;
+use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::logical_plan::LogicalPlan;
 use datafusion::physical_plan::{merge::MergeExec, ExecutionPlan};
@@ -38,6 +39,32 @@ impl HBeeService {
     ) -> Result<()> {
         println!("[hbee] execute query");
         let start = Instant::now();
+
+        let exec_res = match self.query(plan).await {
+            Ok(query_res) => flight_client::call_do_put(query_id, &address, query_res)
+                .await
+                .map_err(|e| internal_err!("Could not do_put hbee result: {}", e)),
+            Err(query_err) => {
+                flight_client::call_do_action(
+                    query_id,
+                    &address,
+                    ActionType::Fail,
+                    format!("{}", query_err),
+                )
+                .await
+                .map_err(|e| internal_err!("Could not do_action(FAIL) hbee: {}", e))?;
+                Err(query_err)
+            }
+        };
+        println!("[hbee] run duration: {}", start.elapsed().as_millis());
+        exec_res
+    }
+
+    /// Execute the logical plan and collect the results
+    /// Collecting the results might increase latency and mem consumption but:
+    /// - reduces connection duration from hbee to hcomb, thus decreasing load on hcomb
+    /// - allows to collect exec errors at once, effectively choosing between do_put and FAIL action
+    async fn query(&self, plan: LogicalPlan) -> Result<Vec<RecordBatch>> {
         let plan = self.execution_context.optimize(&plan)?;
         let hbee_table = utils::find_table::<HBeeTable>(&plan)?;
         hbee_table.set_cache(Arc::clone(&self.range_cache));
@@ -47,20 +74,18 @@ impl HBeeService {
             "[hbee] partitions: {}",
             physical_plan.output_partitioning().partition_count()
         );
-        let res_stream = match physical_plan.output_partitioning().partition_count() {
-            0 => Err(internal_err!("Should have at least one partition")),
-            1 => physical_plan.execute(0).await.map_err(|e| e.into()),
+        let merged_plan = match physical_plan.output_partitioning().partition_count() {
+            0 => Err(internal_err!("Should have at least one partition"))?,
+            1 => physical_plan,
             _ => {
                 // merge into a single partition
                 let physical_plan = MergeExec::new(physical_plan.clone());
                 assert_eq!(1, physical_plan.output_partitioning().partition_count());
-                physical_plan.execute(0).await.map_err(|e| e.into())
+                Arc::new(physical_plan)
             }
-        }?;
-        flight_client::call_do_put(query_id, &address, res_stream)
+        };
+        datafusion::physical_plan::collect(merged_plan)
             .await
-            .map_err(|e| internal_err!("Could not do_put hbee result: {}", e))?;
-        println!("[hbee] run duration: {}", start.elapsed().as_millis());
-        Ok(())
+            .map_err(|e| e.into())
     }
 }
