@@ -2,7 +2,7 @@ module "hbee" {
   source = "./lambda"
 
   function_base_name = "hbee"
-  filename           = "../code/target/docker/lambda.zip"
+  filename           = "../code/target/docker/hbee_lambda.zip"
   handler            = "N/A"
   memory_size        = 2048
   timeout            = 10
@@ -48,10 +48,14 @@ module "hcomb" {
   docker_image                = "${aws_ecr_repository.hcomb_repo.repository_url}:${var.git_revision}"
   subnets                     = module.vpc.public_subnets
   local_ip                    = "${chomp(data.http.icanhazip.body)}/32"
-  hbee_function_name          = module.hbee.lambda_name
-  environment = {
-    GIT_REVISION = var.git_revision
-  }
+
+  environment = [{
+    name  = "GIT_REVISION"
+    value = var.git_revision
+    }, {
+    name  = "AWS_REGION"
+    value = module.env.region_name
+  }]
 }
 
 

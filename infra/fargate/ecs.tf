@@ -50,6 +50,6 @@ resource "aws_ecs_task_definition" "hcomb_task_def" {
   task_role_arn            = aws_iam_role.ecs_task_role.arn  // necessary to access other aws services
   execution_role_arn       = var.ecs_task_execution_role_arn // necessary to log and access ecr
   container_definitions    = jsonencode(local.container_definition)
-  depends_on               = [aws_cloudwatch_log_group.lambda_poc_logging] // make sure the first task does not fail because log group is not available yet
+  depends_on               = [aws_cloudwatch_log_group.hcomb_logging] // make sure the first task does not fail because log group is not available yet
   tags                     = module.env.tags
 }

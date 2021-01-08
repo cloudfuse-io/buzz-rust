@@ -32,7 +32,7 @@ code/target/docker/hbee_lambda.zip: $(shell find code/src -type f) code/Cargo.to
 
 package-hcomb:
 	DOCKER_BUILDKIT=1 docker build \
-		-t cloudfuse/buzz-rust-hcomb \
+		-t cloudfuse/buzz-rust-hcomb:${GIT_REVISION} \
 		-f docker/Dockerfile \
 		--build-arg BIN_NAME=hcomb \
 		--build-arg PORT=3333 \

@@ -2,7 +2,12 @@ module "env" {
   source = "../env"
 }
 
-variable "environment" {}
+variable "environment" {
+  type = list(object({
+    name  = string
+    value = string
+  }))
+}
 
 variable "vpc_id" {}
 
@@ -21,5 +26,3 @@ variable "docker_image" {}
 variable "subnets" {}
 
 variable "local_ip" {}
-
-variable "hbee_function_name" {}

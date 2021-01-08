@@ -1,20 +1,10 @@
 locals {
-  env = [
-    {
-      name  = "HBEE_FUNCTION_NAME"
-      value = var.hbee_function_name
-    },
-    {
-      name  = "AWS_REGION"
-      value = module.env.region_name
-    }
-  ]
   container_definition = [
     {
       cpu         = var.task_cpu
       image       = var.docker_image
       memory      = var.task_memory
-      name        = "lambdapoc"
+      name        = "hcomb"
       essential   = true
       mountPoints = []
       portMappings = [
@@ -30,11 +20,11 @@ locals {
         },
       ]
       volumesFrom = []
-      environment = concat(var.environment, local.env)
+      environment = var.environment
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.lambda_poc_logging.name
+          awslogs-group         = aws_cloudwatch_log_group.hcomb_logging.name
           awslogs-region        = module.env.region_name
           awslogs-stream-prefix = "ecs"
         }
