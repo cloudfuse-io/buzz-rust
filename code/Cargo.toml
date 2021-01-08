@@ -17,13 +17,20 @@ name = "hcomb"
 path = "src/bin/main_hcomb.rs"
 
 [[bin]]
-name = "hbee"
-path = "src/bin/main_hbee.rs"
+name = "hbee_local"
+path = "src/bin/main_hbee_local.rs"
 
 [[bin]]
-name = "fuse"
-path = "src/bin/main_fuse.rs"
+name = "hbee_lambda"
+path = "src/bin/main_hbee_lambda.rs"
 
+[[bin]]
+name = "fuse_local"
+path = "src/bin/main_fuse_local.rs"
+
+[[bin]]
+name = "fuse_aws"
+path = "src/bin/main_fuse_aws.rs"
 
 [dependencies]
 arrow = { git = "https://github.com/apache/arrow", rev = "d61e185", feature=["prettyprint"] }
@@ -40,6 +47,8 @@ chrono = { version = "0.4" }
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded", "io-std"] }
 rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
 rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }
+rusoto_lambda = { version = "0.45.0", default_features = false, features=["rustls"] }
+rusoto_ecs = { version = "0.45.0", default_features = false, features=["rustls"] }
 async-trait = "0.1"
 futures = "0.3"
 serde = { version = "1.0", features = ["derive"] }

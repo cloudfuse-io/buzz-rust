@@ -7,7 +7,7 @@ services:
       dockerfile: ./docker/Dockerfile
       target: runtime-stage
       args: 
-        BIN_NAME: fuse
+        BIN_NAME: fuse_local
     environment: 
       - RUST_BACKTRACE=1
     depends_on:
@@ -36,7 +36,7 @@ services:
       dockerfile: ./docker/Dockerfile
       target: runtime-stage
       args: 
-        BIN_NAME: hbee
+        BIN_NAME: hbee_local
         PORT: 3000
     volumes:
       - ~/.aws/credentials:/.aws/credentials

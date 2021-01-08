@@ -1,3 +1,4 @@
+use crate::clients::lambda::LambdaInvokeClient;
 use crate::error::Result;
 use crate::internal_err;
 use crate::models::{HBeeEvent, HCombAddress, LogicalPlanBytes};
@@ -51,5 +52,35 @@ impl HBeeScheduler for TestHBeeScheduler {
     }
 }
 
-// TODO implementations:
-// TODO - for lambda
+pub struct LambdaHBeeScheduler {
+    client: LambdaInvokeClient,
+}
+
+impl LambdaHBeeScheduler {
+    pub fn new(region: &str) -> Self {
+        Self {
+            client: LambdaInvokeClient::new(region),
+        }
+    }
+}
+
+#[async_trait]
+impl HBeeScheduler for LambdaHBeeScheduler {
+    async fn schedule(
+        &self,
+        query_id: String,
+        address: &HCombAddress,
+        plan: LogicalPlan,
+    ) -> Result<()> {
+        let req_body = serde_json::to_vec(&HBeeEvent {
+            query_id,
+            hcomb_address: address.clone(),
+            plan: LogicalPlanBytes::try_new(&plan)?,
+        })
+        .map_err(|_| internal_err!("failed to serialize to json"))?;
+
+        self.client.invoke(req_body).await?;
+
+        Ok(())
+    }
+}

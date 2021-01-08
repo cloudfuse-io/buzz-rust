@@ -30,11 +30,11 @@ RUN --mount=type=cache,target=./target \
   cp ./target/x86_64-unknown-linux-musl/release/${BIN_NAME} ./exec-static
 
 ## LAMBDA PACKAGE STAGE ##
-# Create a zip archcomb to be deployed to AWS Lambda
+# Create a zip archive to be deployed to AWS Lambda
 
 FROM build-stage as package-stage
 ARG BIN_NAME
-# the exec name inside a lambda archcomb should be `bootstrap`
+# the exec name inside a lambda archive should be `bootstrap`
 RUN cp ./exec-static ./bootstrap
 RUN zip ${BIN_NAME}.zip bootstrap
 
@@ -50,7 +50,7 @@ COPY --from=build-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["./app"]
 
 ## EXPORT STAGE ##
-# Isolate the archcomb so it can be exported with `docker build -o`
+# Isolate the archive so it can be exported with `docker build -o`
 
 FROM scratch as export-stage
 ARG BIN_NAME

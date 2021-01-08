@@ -25,3 +25,7 @@ output "tags" {
 output "region_name" {
   value = local.current_env["region_name"]
 }
+
+output "module_name" {
+  value = local.current_env["tags"]["module"]
+}

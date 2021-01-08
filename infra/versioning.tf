@@ -1,6 +1,6 @@
 # resource group tracks git revision of the current tf state
 resource "aws_resourcegroups_group" "resourcegroup" {
-  name = "terraform_${module.env.tags["module"]}"
+  name = "terraform_${module.env.module_name}"
   resource_query {
     query = <<JSON
 {
@@ -8,7 +8,7 @@ resource "aws_resourcegroups_group" "resourcegroup" {
   "TagFilters": [
     {
       "Key": "module",
-      "Values": ["${module.env.tags["module"]}"]
+      "Values": ["${module.env.module_name}"]
     }
   ]
 }

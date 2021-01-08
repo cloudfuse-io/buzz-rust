@@ -12,22 +12,30 @@ check-dirty:
 ask-target:
 	@echo "Lets deploy ${GIT_REVISION} in ${STAGE} with profile ${PROFILE}..."
 
+# required with AWS CLI v2
+docker-login:
+	aws ecr get-login-password --region "${REGION}" --profile=${PROFILE} | \
+	docker login --username AWS --password-stdin \
+		"$(shell aws sts get-caller-identity --profile=${PROFILE} --query 'Account' --output text).dkr.ecr.${REGION}.amazonaws.com"
+
 test:
 	cd code; RUST_BACKTRACE=1 cargo test
 
-code/target/docker/lambda.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
+code/target/docker/hbee_lambda.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
 	mkdir -p ./code/target/docker
 	DOCKER_BUILDKIT=1 docker build \
 		-f docker/Dockerfile \
-		--build-arg BIN_NAME=lambda \
+		--build-arg BIN_NAME=hbee_lambda \
 		--target export-stage \
 		--output ./code/target/docker \
 		.
 
-package-flight-server:
+package-hcomb:
 	DOCKER_BUILDKIT=1 docker build \
-		-t cloudfuse/flight-server \
+		-t cloudfuse/buzz-rust-hcomb \
 		-f docker/Dockerfile \
+		--build-arg BIN_NAME=hcomb \
+		--build-arg PORT=3333 \
 		--target export-stage \
 		.
 
@@ -48,7 +56,7 @@ init:
 destroy:
 	cd infra; terraform destroy --var generic_playground_file=${GEN_PLAY_FILE}
 
-force-deploy: ask-target code/target/docker/lambda.zip
+force-deploy: ask-target package-hcomb code/target/docker/hbee_lambda.zip
 	@echo "DEPLOYING ${GIT_REVISION} on ${STAGE}..."
 	@cd infra; terraform workspace select ${STAGE}
 	@cd infra; terraform apply \

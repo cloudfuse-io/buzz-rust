@@ -38,6 +38,8 @@ pub enum BuzzError {
     Execution(String),
     /// Error returned when hbee failed
     HBee(String),
+    /// Client error
+    CloudClient(String),
     /// Error when downloading data from an external source
     Download(String),
 }
@@ -93,6 +95,7 @@ impl BuzzError {
             BuzzError::Execution(ref desc) => format!("{}", desc),
             BuzzError::HBee(ref desc) => format!("{}", desc),
             BuzzError::Download(ref desc) => format!("{}", desc),
+            BuzzError::CloudClient(ref desc) => format!("{}", desc),
         }
     }
 }
@@ -136,8 +139,7 @@ impl Display for BuzzError {
                 write!(f, "This feature is not implemented: {}", desc)
             }
             BuzzError::Internal(ref desc) => {
-                write!(f, "Internal error: {}. This was likely caused by a bug in Buzz's \
-                    code and we would welcome that you file an bug report in our issue tracker", desc)
+                write!(f, "Internal error: {}", desc)
             }
             BuzzError::Plan(ref desc) => {
                 write!(f, "Error during planning: {}", desc)
@@ -152,6 +154,9 @@ impl Display for BuzzError {
             }
             BuzzError::Download(ref desc) => {
                 write!(f, "Download error: {}", desc)
+            }
+            BuzzError::CloudClient(ref desc) => {
+                write!(f, "Cloud client error: {}", desc)
             }
         }
     }

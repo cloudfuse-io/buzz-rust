@@ -47,6 +47,7 @@ impl FuseService {
             self.query_planner
                 .plan(query_id.clone(), query.steps, query.capacity.zones);
         let (addresses, plan) = join!(addresses_future, plan_future);
+        let addresses = addresses?;
         let plan = plan?;
 
         assert!(
