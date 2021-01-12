@@ -2,21 +2,24 @@ use serde::{Deserialize, Serialize};
 
 pub enum ActionType {
     Fail,
+    HealthCheck,
     Unknown,
 }
 
 impl ActionType {
     pub fn from_string(serialized: String) -> Self {
         match serialized.as_str() {
-            "FAIL" => ActionType::Fail,
+            "F" => ActionType::Fail,
+            "H" => ActionType::HealthCheck,
             _ => ActionType::Unknown,
         }
     }
 
     pub fn to_string(&self) -> String {
         match self {
-            ActionType::Fail => "FAIL".to_owned(),
-            ActionType::Unknown => "UNKNOWN".to_owned(),
+            ActionType::Fail => "F".to_owned(),
+            ActionType::HealthCheck => "H".to_owned(),
+            ActionType::Unknown => "U".to_owned(),
         }
     }
 }

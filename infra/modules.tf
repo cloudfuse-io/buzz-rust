@@ -100,7 +100,8 @@ resource "aws_iam_policy" "fargate-additional-policy" {
       "Action": [
         "ecs:RunTask",
         "ecs:StartTask",
-        "ecs:DescribeTasks"
+        "ecs:DescribeTasks",
+        "ecs:ListTasks"
       ],
       "Resource": "*",
       "Effect": "Allow"

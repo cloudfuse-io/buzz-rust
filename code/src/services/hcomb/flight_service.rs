@@ -158,6 +158,10 @@ impl FlightService for FlightServiceImpl {
                 let output = futures::stream::empty();
                 Ok(Response::new(Box::pin(output) as Self::DoActionStream))
             }
+            actions::ActionType::HealthCheck => {
+                let output = futures::stream::empty();
+                Ok(Response::new(Box::pin(output) as Self::DoActionStream))
+            }
             actions::ActionType::Unknown => {
                 Err(Status::unimplemented("Not yet implemented"))
             }

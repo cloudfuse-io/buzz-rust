@@ -1,7 +1,12 @@
+use std::time::{Duration, Instant};
+
 use crate::clients::fargate::FargateCreationClient;
+use crate::clients::flight_client;
 use crate::error::Result;
+use crate::internal_err;
 use crate::models::{query::HCombCapacity, HCombAddress};
 use async_trait::async_trait;
+use tokio::time::timeout;
 
 #[async_trait]
 pub trait HCombManager {
@@ -47,6 +52,36 @@ impl HCombManager for FargateHCombManager {
 
         let private_ip = self.client.create_new().await?;
 
-        Ok(vec![format!("http://{}:3333", private_ip)])
+        let address = format!("http://{}:3333", private_ip);
+
+        let start = Instant::now();
+        let timeout_sec = 20;
+        loop {
+            match timeout(
+                Duration::from_millis(1),
+                flight_client::try_connect(&address),
+            )
+            .await
+            {
+                Ok(Ok(())) => break,
+                Ok(Err(e)) if start.elapsed().as_secs() > timeout_sec => {
+                    Err(internal_err!(
+                        "Couldn't connect to hcomb for more than {}s with: {}",
+                        start.elapsed().as_millis(),
+                        e
+                    ))?
+                }
+                Err(_) if start.elapsed().as_secs() > timeout_sec => Err(internal_err!(
+                    "Couldn't connect to hcomb for more than {}s because of timeouts",
+                    start.elapsed().as_millis()
+                ))?,
+                Ok(Err(_)) | Err(_) => continue,
+            }
+        }
+        println!(
+            "[fuse] took {}ms to connect to hcomb",
+            start.elapsed().as_millis()
+        );
+        Ok(vec![address])
     }
 }

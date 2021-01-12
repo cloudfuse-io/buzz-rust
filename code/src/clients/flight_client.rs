@@ -3,7 +3,6 @@ use std::error::Error;
 use std::pin::Pin;
 
 use crate::flight_utils;
-use crate::internal_err;
 use crate::models::{actions, HCombAddress};
 use crate::protobuf::LogicalPlanNode;
 use arrow::error::Result as ArrowResult;
@@ -59,20 +58,14 @@ pub async fn call_do_put(
     Ok(())
 }
 
-pub async fn call_do_action(
+pub async fn call_fail_action(
     query_id: String,
     address: &HCombAddress,
-    action_type: actions::ActionType,
     reason: String,
 ) -> Result<(), Box<dyn Error>> {
-    let action = match action_type {
-        actions::ActionType::Fail => arrow_flight::Action {
-            body: serde_json::to_vec(&actions::Fail { query_id, reason }).unwrap(),
-            r#type: action_type.to_string(),
-        },
-        actions::ActionType::Unknown => {
-            return Err(Box::new(internal_err!("Unexpected action type")))
-        }
+    let action = arrow_flight::Action {
+        body: serde_json::to_vec(&actions::Fail { query_id, reason }).unwrap(),
+        r#type: actions::ActionType::Fail.to_string(),
     };
 
     let request = tonic::Request::new(action);
@@ -86,5 +79,10 @@ pub async fn call_do_action(
         .collect::<Vec<_>>()
         .await;
 
+    Ok(())
+}
+
+pub async fn try_connect(address: &HCombAddress) -> Result<(), Box<dyn Error>> {
+    FlightServiceClient::connect(address.clone()).await?;
     Ok(())
 }

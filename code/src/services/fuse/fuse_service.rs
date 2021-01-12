@@ -40,7 +40,7 @@ impl FuseService {
     }
 
     pub async fn run(&mut self, query: BuzzQuery) -> Result<()> {
-        let start = Instant::now();
+        let start_run = Instant::now();
         let addresses_future = self.hcomb_manager.find_or_start(&query.capacity);
         let query_id = format!("query-{}", Utc::now().to_rfc3339());
         let plan_future =
@@ -77,6 +77,7 @@ impl FuseService {
         // TODO start sending to combs as soon as they are ready
         // TODO alternate between combs?
         println!("[fuse] schedule hbees");
+        let start_schedule = Instant::now();
         let future_hbees = (0..plan.zones.len())
             .flat_map(|i| (0..plan.zones[i].hbee.len()).map(move |j| (i, j)))
             .map(|(i, j)| {
@@ -98,7 +99,14 @@ impl FuseService {
             pretty::print_batches(&result).unwrap();
         }
 
-        println!("[fuse] run duration: {}", start.elapsed().as_millis());
+        println!(
+            "[fuse] hbee run duration: {}",
+            start_schedule.elapsed().as_millis()
+        );
+        println!(
+            "[fuse] total run duration: {}",
+            start_run.elapsed().as_millis()
+        );
         Ok(())
     }
 }

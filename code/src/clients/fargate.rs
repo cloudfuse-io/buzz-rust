@@ -1,14 +1,14 @@
 use std::iter::IntoIterator;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::error::{BuzzError, Result};
 use crate::models::env;
 use rusoto_core::Region;
 use rusoto_ecs::{
-    AwsVpcConfiguration, DescribeTasksRequest, Ecs, EcsClient, NetworkConfiguration,
-    RunTaskRequest,
+    AwsVpcConfiguration, DescribeTasksRequest, Ecs, EcsClient, ListTasksRequest,
+    ListTasksResponse, NetworkConfiguration, RunTaskRequest,
 };
 use tokio::time::timeout;
 
@@ -25,19 +25,91 @@ impl FargateCreationClient {
 }
 
 impl FargateCreationClient {
-    /// Create a new fargate task and returns private IP
+    /// Create a new fargate task and returns private IP.
+    /// The task might not be ready to receive requests yet.
     pub async fn create_new(&self) -> Result<String> {
+        let start = Instant::now();
         let config = env::get_fargate_config()?;
+
+        let mut task_arn = self
+            .get_existing_task(config.hcomb_cluster_name.clone())
+            .await;
+
+        if task_arn.is_none() {
+            task_arn = Some(
+                self.start_task(
+                    config.hcomb_task_def_arn,
+                    config.hcomb_cluster_name.clone(),
+                    config.public_subnets,
+                    config.hcomb_task_sg_id,
+                )
+                .await?,
+            );
+        }
+
+        println!("[fuse] task started");
+
+        tokio::time::delay_for(Duration::from_secs(1)).await;
+
+        let result = self
+            .wait_for_provisioning(task_arn.unwrap(), config.hcomb_cluster_name.clone())
+            .await?;
+
+        println!(
+            "[fuse] took {}ms to create new task",
+            start.elapsed().as_millis()
+        );
+
+        Ok(result)
+    }
+
+    /// Get existing task ARN if their is one
+    /// /// TODO better error management
+    async fn get_existing_task(&self, cluster_name: String) -> Option<String> {
+        let request = ListTasksRequest {
+            cluster: Some(cluster_name),
+            container_instance: None,
+            desired_status: Some("RUNNING".to_owned()),
+            family: None,
+            launch_type: None,
+            max_results: Some(1),
+            next_token: None,
+            service_name: None,
+            started_by: None,
+        };
+
+        let result =
+            timeout(Duration::from_secs(2), self.client.list_tasks(request)).await;
+
+        // if request for existing task failed for any reason, return None
+        match result {
+            Ok(Ok(ListTasksResponse {
+                task_arns: Some(arns),
+                ..
+            })) if arns.len() > 0 => Some(arns[0].clone()),
+            _ => None,
+        }
+    }
+
+    /// Start new task and return its arn
+    /// TODO better error management
+    async fn start_task(
+        &self,
+        task_definition: String,
+        cluster_name: String,
+        subnets: Vec<String>,
+        security_group: String,
+    ) -> Result<String> {
         let input = RunTaskRequest {
-            task_definition: config.hcomb_task_def_arn,
+            task_definition,
             count: Some(1),
-            cluster: Some(config.hcomb_cluster_name.clone()),
+            cluster: Some(cluster_name),
             group: None,
             network_configuration: Some(NetworkConfiguration {
                 awsvpc_configuration: Some(AwsVpcConfiguration {
                     assign_public_ip: Some("ENABLED".to_owned()),
-                    subnets: config.public_subnets,
-                    security_groups: Some(vec![config.hcomb_task_sg_id]),
+                    subnets,
+                    security_groups: Some(vec![security_group]),
                 }),
             }),
             enable_ecs_managed_tags: None,
@@ -65,25 +137,27 @@ impl FargateCreationClient {
             }
         }
 
-        println!("[fuse] task started");
-
-        let task_arn = result
+        Ok(result
             .tasks
             .unwrap()
             .into_iter()
             .next()
             .unwrap()
             .task_arn
-            .unwrap();
+            .unwrap())
+    }
 
-        tokio::time::delay_for(Duration::from_secs(1)).await;
-
-        // TODO what is the best way to check whether it is ready
-        // TODO better error management
-        // TODO fargate container lifecycle
+    /// Wait for the given task to be provisioned and attributed a private IP
+    /// TODO better error management
+    /// TODO fargate container lifecycle
+    async fn wait_for_provisioning(
+        &self,
+        task_arn: String,
+        hcomb_cluster_name: String,
+    ) -> Result<String> {
         loop {
             let input = DescribeTasksRequest {
-                cluster: Some(config.hcomb_cluster_name.clone()),
+                cluster: Some(hcomb_cluster_name.clone()),
                 include: None,
                 tasks: vec![task_arn.clone()],
             };
@@ -95,16 +169,6 @@ impl FargateCreationClient {
                 .tasks
                 .unwrap();
 
-            println!(
-                "[fuse] last_status({:?}) / stopped_reason({:?})",
-                description[0].last_status, description[0].stopped_reason,
-            );
-
-            // println!(
-            //     "{:?}",
-            //     description[0].attachments.as_ref().unwrap()[0].details
-            // );
-
             let attachment_props = description[0].attachments.as_ref().unwrap()[0]
                 .details
                 .as_ref()
@@ -113,14 +177,12 @@ impl FargateCreationClient {
             for prop in attachment_props {
                 if let Some(ref key) = prop.name {
                     if key == "privateIPv4Address" && prop.value.as_ref().is_some() {
-                        // make sure the container is truely available
-                        tokio::time::delay_for(Duration::from_secs(5)).await;
                         return Ok(prop.value.as_ref().unwrap().clone());
                     }
                 }
             }
 
-            tokio::time::delay_for(std::time::Duration::new(0, 500_000_000)).await;
+            tokio::time::delay_for(Duration::from_millis(200)).await;
         }
     }
 }
