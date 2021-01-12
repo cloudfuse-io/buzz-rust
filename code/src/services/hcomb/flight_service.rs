@@ -33,7 +33,7 @@ impl FlightServiceImpl {
     }
 
     pub async fn start(&self) -> tokio::task::JoinHandle<()> {
-        let addr = "0.0.0.0:50051".parse().unwrap();
+        let addr = "0.0.0.0:3333".parse().unwrap();
         let svc = FlightServiceServer::new(self.clone());
         tokio::spawn(async move {
             println!("[hcomb] Listening on {:?}", addr);

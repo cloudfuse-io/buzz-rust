@@ -57,10 +57,10 @@ pub struct LambdaHBeeScheduler {
 }
 
 impl LambdaHBeeScheduler {
-    pub fn new(region: &str) -> Self {
-        Self {
-            client: LambdaInvokeClient::new(region),
-        }
+    pub fn try_new(region: &str) -> Result<Self> {
+        Ok(Self {
+            client: LambdaInvokeClient::try_new(region)?,
+        })
     }
 }
 

@@ -17,19 +17,21 @@ variable "timeout" {}
 
 variable "runtime" {}
 
+variable "additional_policies" {
+  type    = list(any)
+  default = []
+}
+
+variable "environment" {
+  type = map(any)
+}
+
+# VPC -> if one is set all should be set
+
 variable "vpc_id" {
   default = ""
 }
 
 variable "subnets" {
   default = []
-}
-
-variable "additional_policies" {
-  type    = list
-  default = []
-}
-
-variable "environment" {
-  type = map
 }

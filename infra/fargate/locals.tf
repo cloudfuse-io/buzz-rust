@@ -4,7 +4,7 @@ locals {
       cpu         = var.task_cpu
       image       = var.docker_image
       memory      = var.task_memory
-      name        = "hcomb"
+      name        = var.name
       essential   = true
       mountPoints = []
       portMappings = [
@@ -24,7 +24,7 @@ locals {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.hcomb_logging.name
+          awslogs-group         = aws_cloudwatch_log_group.fargate_logging.name
           awslogs-region        = module.env.region_name
           awslogs-stream-prefix = "ecs"
         }

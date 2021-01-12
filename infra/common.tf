@@ -1,3 +1,25 @@
+resource "aws_security_group" "service_endpoint" {
+  name        = "${module.env.module_name}_service_endpoint_${module.env.stage}"
+  description = "allow inbound access to endpoint from local network"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    protocol    = "tcp"
+    from_port   = 80
+    to_port     = 80
+    cidr_blocks = [module.env.vpc_cidr]
+  }
+
+  ingress {
+    protocol    = "tcp"
+    from_port   = 443
+    to_port     = 443
+    cidr_blocks = [module.env.vpc_cidr]
+  }
+
+  tags = module.env.tags
+}
+
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
@@ -10,29 +32,24 @@ module "vpc" {
   enable_vpn_gateway = false
   enable_s3_endpoint = true
 
+  ## enable access to the ECS and Lambda APIs. This costs ~ $8 / month / endpoint
+  # dns settings allow to access services transparently
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  # activate ecs access
+  enable_ecs_endpoint              = true
+  ecs_endpoint_subnet_ids          = [module.vpc.public_subnets[0]]
+  ecs_endpoint_security_group_ids  = [aws_security_group.service_endpoint.id]
+  ecs_endpoint_private_dns_enabled = true
+  # activate lambda access
+  enable_lambda_endpoint              = true
+  lambda_endpoint_subnet_ids          = [module.vpc.public_subnets[0]]
+  lambda_endpoint_security_group_ids  = [aws_security_group.service_endpoint.id]
+  lambda_endpoint_private_dns_enabled = true
+
+
   tags = module.env.tags
 }
-
-resource "aws_iam_policy" "s3-additional-policy" {
-  name        = "${module.env.module_name}_s3_access_${module.env.region_name}_${module.env.stage}"
-  description = "additional policy for s3 access"
-
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": [
-        "s3:*"
-      ],
-      "Resource": "*",
-      "Effect": "Allow"
-    }
-  ]
-}
-EOF
-}
-
 
 # TODO move all below this into ./fargate ?
 

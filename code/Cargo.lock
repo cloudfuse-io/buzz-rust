@@ -283,6 +283,7 @@ dependencies = [
  "base64 0.13.0",
  "chrono",
  "datafusion",
+ "envy",
  "futures 0.3.8",
  "hyper 0.13.9",
  "lambda_runtime",
@@ -699,6 +700,15 @@ name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
+name = "envy"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f47e0157f2cb54f5ae1bd371b30a2ae4311e1c028f575cd4e81de7353215965"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "failure"

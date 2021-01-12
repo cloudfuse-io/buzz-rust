@@ -21,13 +21,13 @@ services:
       target: runtime-stage
       args: 
         BIN_NAME: hcomb
-        PORT: 50051
+        PORT: 3333
     environment: 
       - RUST_BACKTRACE=1
     mem_limit: 4096M
     cpus: 4
     ports:
-      - 50051
+      - 3333
     # scale: 1
 
   hbee:

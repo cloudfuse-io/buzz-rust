@@ -41,10 +41,10 @@ resource "aws_iam_role_policy" "lambda_default_policy" {
 EOF
 }
 
-# resource "aws_iam_role_policy_attachment" "lamba_exec_role_eni" {
-#   role       = aws_iam_role.lambda_role.name
-#   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-# }
+resource "aws_iam_role_policy_attachment" "lamba_exec_role_eni" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
 
 resource "aws_iam_role_policy_attachment" "additional-attachments" {
   count = length(var.additional_policies)

@@ -29,8 +29,8 @@ name = "fuse_local"
 path = "src/bin/main_fuse_local.rs"
 
 [[bin]]
-name = "fuse_aws"
-path = "src/bin/main_fuse_aws.rs"
+name = "fuse_lambda"
+path = "src/bin/main_fuse_lambda.rs"
 
 [dependencies]
 arrow = { git = "https://github.com/apache/arrow", rev = "d61e185", feature=["prettyprint"] }
@@ -60,6 +60,7 @@ prost = "0.6"
 prost-types = "0.6"
 hyper = { version = "0.13.4", features = ["stream"] }
 base64 = { version = "0.13.0" }
+envy = {version = "0.4" }
 
 [build-dependencies]
 prost-build = { version = "0.6.1" }

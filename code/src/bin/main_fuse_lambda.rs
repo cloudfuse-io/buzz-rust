@@ -1,12 +1,17 @@
+use std::error::Error;
+
+use buzz::error::Result as BuzzResult;
 use buzz::example_catalog;
 use buzz::models::query::{BuzzQuery, BuzzStep, BuzzStepType, HCombCapacity};
 use buzz::services::fuse::{
     FargateHCombManager, FuseService, HttpHCombScheduler, LambdaHBeeScheduler,
     QueryPlanner,
 };
+use lambda_runtime::{error::HandlerError, lambda, Context};
+use serde_json::Value;
 
-pub async fn start_fuse() -> Result<(), Box<dyn std::error::Error>> {
-    let hbee_scheduler = LambdaHBeeScheduler::new("eu-west-1");
+pub async fn start_fuse() -> BuzzResult<()> {
+    let hbee_scheduler = LambdaHBeeScheduler::try_new("eu-west-1")?;
     let hcomb_manager = FargateHCombManager::new("eu-west-1");
     let hcomb_scheduler = HttpHCombScheduler {};
     let query_planner = QueryPlanner::new();
@@ -18,6 +23,8 @@ pub async fn start_fuse() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_small());
+
+    println!("[fuse] initialized, starting query...");
 
     service
         .run(BuzzQuery {
@@ -43,7 +50,16 @@ pub async fn start_fuse() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    start_fuse().await
+fn main() -> Result<(), Box<dyn Error>> {
+    lambda!(my_handler);
+    Ok(())
+}
+
+fn my_handler(event: Value, _: Context) -> Result<Value, HandlerError> {
+    println!("Input Event: {:?}", event);
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(start_fuse())
+        .unwrap();
+    Ok(Value::String("Ok!".to_owned()))
 }

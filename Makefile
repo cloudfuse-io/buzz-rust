@@ -30,21 +30,40 @@ code/target/docker/hbee_lambda.zip: $(shell find code/src -type f) code/Cargo.to
 		--output ./code/target/docker \
 		.
 
+code/target/docker/fuse_lambda.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
+	mkdir -p ./code/target/docker
+	DOCKER_BUILDKIT=1 docker build \
+		-f docker/Dockerfile \
+		--build-arg BIN_NAME=fuse_lambda \
+		--target export-stage \
+		--output ./code/target/docker \
+		.
+
 package-hcomb:
 	DOCKER_BUILDKIT=1 docker build \
 		-t cloudfuse/buzz-rust-hcomb:${GIT_REVISION} \
 		-f docker/Dockerfile \
 		--build-arg BIN_NAME=hcomb \
 		--build-arg PORT=3333 \
-		--target export-stage \
+		--target runtime-stage \
 		.
 
-integ: 
+integ-local:
 	cd code; cargo run --bin integ
 	
-docker-integ:
+integ-docker:
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml build
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml up --abort-on-container-exit
+
+integ-aws:
+	aws lambda invoke \
+			--function-name $(shell bash -c 'cd infra; terraform output fuse_lambda_name') \
+			--log-type Tail \
+			--region ${REGION} \
+			--profile ${PROFILE} \
+			--query 'LogResult' \
+			--output text \
+			/dev/null | base64 -d
 
 example-direct-s3:
 	cd code; RUST_BACKTRACE=1 cargo run --example direct_s3
@@ -56,7 +75,7 @@ init:
 destroy:
 	cd infra; terraform destroy --var generic_playground_file=${GEN_PLAY_FILE}
 
-force-deploy: ask-target package-hcomb code/target/docker/hbee_lambda.zip
+force-deploy: ask-target package-hcomb code/target/docker/hbee_lambda.zip code/target/docker/fuse_lambda.zip
 	@echo "DEPLOYING ${GIT_REVISION} on ${STAGE}..."
 	@cd infra; terraform workspace select ${STAGE}
 	@cd infra; terraform apply \

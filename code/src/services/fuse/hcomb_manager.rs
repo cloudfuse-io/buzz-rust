@@ -21,7 +21,7 @@ impl HCombManager for TestHCombManager {
         capactity: &HCombCapacity,
     ) -> Result<Vec<HCombAddress>> {
         assert_eq!(capactity.zones, 1, "Only single zone supported for now");
-        Ok(vec![format!("http://{}:50051", self.domain)])
+        Ok(vec![format!("http://{}:3333", self.domain)])
     }
 }
 
@@ -45,7 +45,6 @@ impl HCombManager for FargateHCombManager {
     ) -> Result<Vec<HCombAddress>> {
         assert_eq!(capactity.zones, 1, "Only single zone supported for now");
 
-        // TODO not only create new but also check available
         let private_ip = self.client.create_new().await?;
 
         Ok(vec![format!("http://{}:3333", private_ip)])

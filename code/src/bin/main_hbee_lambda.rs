@@ -1,7 +1,19 @@
 use std::error::Error;
 
+use buzz::models::HBeeEvent;
+use buzz::services::hbee::HBeeService;
 use lambda_runtime::{error::HandlerError, lambda, Context};
 use serde_json::Value;
+
+async fn exec(event: Value) -> Result<(), Box<dyn Error>> {
+    let hbee_event: HBeeEvent = serde_json::from_value(event)?;
+    let parsed_plan = hbee_event.plan.parse()?;
+    let hbee_service = HBeeService::new().await;
+    hbee_service
+        .execute_query(hbee_event.query_id, parsed_plan, hbee_event.hcomb_address)
+        .await
+        .map_err(|e| Box::new(e).into())
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     lambda!(my_handler);
@@ -10,5 +22,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn my_handler(event: Value, _: Context) -> Result<Value, HandlerError> {
     println!("Input Event: {:?}", event);
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(exec(event))
+        .unwrap();
     Ok(Value::String("Ok!".to_owned()))
 }

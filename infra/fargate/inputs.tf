@@ -2,6 +2,8 @@ module "env" {
   source = "../env"
 }
 
+variable "name" {}
+
 variable "environment" {
   type = list(object({
     name  = string
