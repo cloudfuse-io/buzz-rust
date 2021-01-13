@@ -143,7 +143,7 @@ module "fuse" {
 
   function_base_name = "fuse"
   filename           = "../code/target/docker/fuse_lambda.zip"
-  memory_size        = 2048
+  memory_size        = 3008
   timeout            = 30
 
   vpc_id  = module.vpc.vpc_id

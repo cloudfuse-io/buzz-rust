@@ -3,7 +3,7 @@ module "hbee_tests" {
 
   function_base_name = "hbee_tests"
   filename           = "../code/target/docker/hbee_tests.zip"
-  memory_size        = 2048
+  memory_size        = 3008
   timeout            = 10
 
   vpc_id  = module.vpc.vpc_id

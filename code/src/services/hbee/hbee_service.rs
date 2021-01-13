@@ -42,7 +42,14 @@ impl HBeeService {
         println!("[hbee] execute query");
         let start = Instant::now();
         let query_res = self.query(plan).await;
-        println!("[hbee] query duration: {}", start.elapsed().as_millis());
+        let cache_stats = self.range_cache.statistics();
+        println!("[hbee] query_duration={}, waiting_download_ms={}, downloaded_bytes={}, processed_bytes={}, download_count={}",
+            start.elapsed().as_millis(), 
+            cache_stats.waiting_download_ms(),
+            cache_stats.downloaded_bytes(),
+            cache_stats.processed_bytes(),
+            cache_stats.download_count(),
+        );
         let start = Instant::now();
         let exec_res = self.collector.send_back(query_id, query_res, address).await;
         println!("[hbee] collector duration: {}", start.elapsed().as_millis());
@@ -54,15 +61,17 @@ impl HBeeService {
     /// - reduces connection duration from hbee to hcomb, thus decreasing load on hcomb
     /// - allows to collect exec errors at once, effectively choosing between do_put and FAIL action
     async fn query(&self, plan: LogicalPlan) -> Result<Vec<RecordBatch>> {
+        let start = Instant::now();
         let plan = self.execution_context.optimize(&plan)?;
         let hbee_table = utils::find_table::<HBeeTable>(&plan)?;
         hbee_table.set_cache(Arc::clone(&self.range_cache));
         let physical_plan = self.execution_context.create_physical_plan(&plan)?;
-        // if necessary, merge the partitions
         println!(
-            "[hbee] partitions: {}",
+            "[hbee] planning duration: {}, partitions: {}",
+            start.elapsed().as_millis(),
             physical_plan.output_partitioning().partition_count()
         );
+        // if necessary, merge the partitions
         let merged_plan = match physical_plan.output_partitioning().partition_count() {
             0 => Err(internal_err!("Should have at least one partition"))?,
             1 => physical_plan,

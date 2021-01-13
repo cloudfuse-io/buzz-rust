@@ -15,12 +15,12 @@ async fn new_plan() -> Result<LogicalPlan, Box<dyn Error>> {
     query_planner.add_catalog("nyc_taxi", example_catalog::nyc_taxi_large());
     let steps = vec![
         BuzzStep {
-            sql: "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi GROUP BY payment_type".to_owned(),
+            sql: "SELECT payment_type, COUNT(payment_type) as payment_type_count, SUM(fare_amount) as fare_amount_sum FROM nyc_taxi GROUP BY payment_type".to_owned(),
             name: "nyc_taxi_map".to_owned(),
             step_type: BuzzStepType::HBee,
         },
         BuzzStep {
-            sql: "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type".to_owned(),
+            sql: "SELECT payment_type, SUM(payment_type_count), SUM(fare_amount_sum) FROM nyc_taxi_map GROUP BY payment_type".to_owned(),
             name: "nyc_taxi_reduce".to_owned(),
             step_type: BuzzStepType::HComb,
         },

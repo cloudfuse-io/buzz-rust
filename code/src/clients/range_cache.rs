@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 use std::io::{self, Read};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use crate::error::{BuzzError, Result};
 use crate::{ensure, internal_err};
@@ -57,6 +59,28 @@ type CacheData = Arc<Mutex<HashMap<CacheKey, FileData>>>;
 type DownloaderMap = Arc<Mutex<HashMap<DownloaderId, Arc<dyn Downloader>>>>;
 type DownloadRequest = (DownloaderId, FileId, u64, usize);
 
+pub struct RangeCacheStats {
+    downloaded_bytes: AtomicUsize,
+    processed_bytes: AtomicUsize,
+    waiting_download_ms: AtomicUsize,
+    download_count: AtomicUsize,
+}
+
+impl RangeCacheStats {
+    pub fn downloaded_bytes(&self) -> usize {
+        self.downloaded_bytes.load(Ordering::Relaxed)
+    }
+    pub fn processed_bytes(&self) -> usize {
+        self.processed_bytes.load(Ordering::Relaxed)
+    }
+    pub fn waiting_download_ms(&self) -> usize {
+        self.waiting_download_ms.load(Ordering::Relaxed)
+    }
+    pub fn download_count(&self) -> usize {
+        self.download_count.load(Ordering::Relaxed)
+    }
+}
+
 /// A caching struct that queues up download requests and executes them with
 /// the appropriate registered donwloader.
 pub struct RangeCache {
@@ -64,6 +88,7 @@ pub struct RangeCache {
     downloaders: DownloaderMap,
     cv: Arc<std::sync::Condvar>,
     tx: UnboundedSender<DownloadRequest>,
+    stats: Arc<RangeCacheStats>,
 }
 
 impl RangeCache {
@@ -75,6 +100,12 @@ impl RangeCache {
             downloaders: Arc::new(Mutex::new(HashMap::new())),
             cv: Arc::new(std::sync::Condvar::new()),
             tx,
+            stats: Arc::new(RangeCacheStats {
+                downloaded_bytes: AtomicUsize::new(0),
+                processed_bytes: AtomicUsize::new(0),
+                waiting_download_ms: AtomicUsize::new(0),
+                download_count: AtomicUsize::new(0),
+            }),
         };
         cache.start(rx).await;
         cache
@@ -84,6 +115,7 @@ impl RangeCache {
         let data_ref = Arc::clone(&self.data);
         let cv_ref = Arc::clone(&self.cv);
         let downloaders_ref = Arc::clone(&self.downloaders);
+        let stats_ref = Arc::clone(&self.stats);
         tokio::spawn(async move {
             let pool = Arc::new(tokio::sync::Semaphore::new(8));
             while let Some(message) = rx.recv().await {
@@ -95,6 +127,7 @@ impl RangeCache {
                 let data_ref = Arc::clone(&data_ref);
                 let cv_ref = Arc::clone(&cv_ref);
                 let pool_ref = Arc::clone(&pool);
+                let stats_ref = Arc::clone(&stats_ref);
                 tokio::spawn(async move {
                     // get ref to donwloader
                     let downloader;
@@ -109,6 +142,10 @@ impl RangeCache {
                     let downloaded_res = downloader
                         .download(message.1.clone(), message.2, message.3)
                         .await;
+                    stats_ref
+                        .downloaded_bytes
+                        .fetch_add(message.3, Ordering::SeqCst);
+                    stats_ref.download_count.fetch_add(1, Ordering::SeqCst);
                     pool_ref.add_permits(1);
                     // update the cache data with the result
                     let mut data_guard = data_ref.lock().unwrap();
@@ -152,6 +189,12 @@ impl RangeCache {
         start: u64,
         length: usize,
     ) {
+        println!(
+            "[hbee] {} schedule ({},{})",
+            chrono::Utc::now().to_rfc3339(),
+            start,
+            length,
+        );
         let mut data_guard = self.data.lock().unwrap();
         let file_map = data_guard
             .entry((downloader_id.clone(), file_id.clone()))
@@ -172,6 +215,10 @@ impl RangeCache {
         start: u64,
         length: usize,
     ) -> Result<CachedRead> {
+        self.stats
+            .processed_bytes
+            .fetch_add(length, Ordering::SeqCst);
+        let start_time = Instant::now();
         use std::ops::Bound::{Included, Unbounded};
         let mut data_guard = self.data.lock().unwrap();
         let identifier = (downloader_id.clone(), file_id.clone());
@@ -201,6 +248,12 @@ impl RangeCache {
 
         let unused_start = start - before.0;
 
+        println!("[hbee] Waited for dl {}", start_time.elapsed().as_millis());
+
+        self.stats
+            .waiting_download_ms
+            .fetch_add(start_time.elapsed().as_millis() as usize, Ordering::SeqCst);
+
         match before.1 {
             Download::Done(bytes) => {
                 ensure!(
@@ -218,6 +271,10 @@ impl RangeCache {
             Download::Error(err) => Err(BuzzError::Download(err.to_owned())),
             Download::Pending => unreachable!(),
         }
+    }
+
+    pub fn statistics(&self) -> Arc<RangeCacheStats> {
+        Arc::clone(&self.stats)
     }
 }
 
