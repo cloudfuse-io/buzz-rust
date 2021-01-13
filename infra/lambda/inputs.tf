@@ -9,13 +9,17 @@ variable "function_base_name" {}
 
 variable "filename" {}
 
-variable "handler" {}
+variable "handler" {
+  default = "N/A" # handler not used with "provided" runtime
+}
 
 variable "memory_size" {}
 
 variable "timeout" {}
 
-variable "runtime" {}
+variable "runtime" {
+  default = "provided"
+}
 
 variable "additional_policies" {
   type    = list(any)

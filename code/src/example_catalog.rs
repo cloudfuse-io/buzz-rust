@@ -22,6 +22,36 @@ pub fn nyc_taxi_small() -> CatalogTable {
     )
 }
 
+pub fn nyc_taxi_large() -> CatalogTable {
+    StaticCatalogTable::new(
+        nyc_taxi_schema(),
+        "eu-west-1".to_owned(),
+        "cloudfuse-taxi-data".to_owned(),
+        vec![
+            SizedFile {
+                key: "raw_5M/2009/01/data.parquet".to_owned(),
+                length: 388070114,
+            },
+            SizedFile {
+                key: "raw_5M/2009/02/data.parquet".to_owned(),
+                length: 368127982,
+            },
+            SizedFile {
+                key: "raw_5M/2009/03/data.parquet".to_owned(),
+                length: 398600815,
+            },
+            SizedFile {
+                key: "raw_5M/2009/04/data.parquet".to_owned(),
+                length: 396353841,
+            },
+            SizedFile {
+                key: "raw_5M/2009/05/data.parquet".to_owned(),
+                length: 410283205,
+            },
+        ],
+    )
+}
+
 fn nyc_taxi_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("vendor_id", DataType::Utf8, true),

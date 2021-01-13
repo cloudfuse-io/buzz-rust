@@ -21,23 +21,16 @@ docker-login:
 test:
 	cd code; RUST_BACKTRACE=1 cargo test
 
-code/target/docker/hbee_lambda.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
+code/target/docker/%.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
 	mkdir -p ./code/target/docker
 	DOCKER_BUILDKIT=1 docker build \
 		-f docker/Dockerfile \
-		--build-arg BIN_NAME=hbee_lambda \
+		--build-arg BIN_NAME=$* \
 		--target export-stage \
 		--output ./code/target/docker \
 		.
 
-code/target/docker/fuse_lambda.zip: $(shell find code/src -type f) code/Cargo.toml docker/Dockerfile
-	mkdir -p ./code/target/docker
-	DOCKER_BUILDKIT=1 docker build \
-		-f docker/Dockerfile \
-		--build-arg BIN_NAME=fuse_lambda \
-		--target export-stage \
-		--output ./code/target/docker \
-		.
+package-lambdas: code/target/docker/hbee_lambda.zip code/target/docker/fuse_lambda.zip code/target/docker/hbee_tests.zip
 
 package-hcomb:
 	DOCKER_BUILDKIT=1 docker build \
@@ -48,14 +41,14 @@ package-hcomb:
 		--target runtime-stage \
 		.
 
-integ-local:
+run-integ-local:
 	cd code; cargo run --bin integ
 	
-integ-docker:
+run-integ-docker:
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml build
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml up --abort-on-container-exit
 
-integ-aws:
+run-integ-aws:
 	aws lambda invoke \
 			--function-name $(shell bash -c 'cd infra; terraform output fuse_lambda_name') \
 			--log-type Tail \
@@ -75,10 +68,27 @@ init:
 destroy:
 	cd infra; terraform destroy --var generic_playground_file=${GEN_PLAY_FILE}
 
-force-deploy: ask-target package-hcomb code/target/docker/hbee_lambda.zip code/target/docker/fuse_lambda.zip
+force-deploy: ask-target package-hcomb package-lambdas
 	@echo "DEPLOYING ${GIT_REVISION} on ${STAGE}..."
 	@cd infra; terraform workspace select ${STAGE}
 	@cd infra; terraform apply \
 		--var profile=${PROFILE} \
 		--var git_revision=${GIT_REVISION}
 	@echo "${GIT_REVISION} DEPLOYED !!!"
+
+deploy-hbee-tests: ask-target code/target/docker/hbee_tests.zip
+	@cd infra; terraform workspace select dev
+	cd infra; terraform apply \
+		-auto-approve \
+		--var profile=${PROFILE} \
+		--var git_revision=${GIT_REVISION}
+
+run-hbee-tests: 
+	aws lambda invoke \
+		--function-name $(shell bash -c 'cd infra; terraform output hbee_tests_lambda_name') \
+		--log-type Tail \
+		--region ${REGION} \
+		--profile ${PROFILE} \
+		--query 'LogResult' \
+		--output text \
+		/dev/null | base64 -d

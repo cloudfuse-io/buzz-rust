@@ -25,6 +25,10 @@ name = "hbee_lambda"
 path = "src/bin/main_hbee_lambda.rs"
 
 [[bin]]
+name = "hbee_tests"
+path = "src/bin/main_hbee_tests.rs"
+
+[[bin]]
 name = "fuse_local"
 path = "src/bin/main_fuse_local.rs"
 

@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use buzz::models::HBeeEvent;
-use buzz::services::hbee::HBeeService;
+use buzz::services::hbee::{HBeeService, HttpCollector};
 use futures::StreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server};
@@ -17,7 +17,8 @@ async fn exec(mut req: Request<Body>) -> Result<Response<Body>, DynError> {
     let hbee_event: HBeeEvent = serde_json::from_slice(&body)?;
     let parsed_plan = hbee_event.plan.parse()?;
     tokio::spawn(async {
-        let hbee_service = HBeeService::new().await;
+        let collector = Box::new(HttpCollector {});
+        let hbee_service = HBeeService::new(collector).await;
         let res = hbee_service
             .execute_query(hbee_event.query_id, parsed_plan, hbee_event.hcomb_address)
             .await;

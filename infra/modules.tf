@@ -25,10 +25,8 @@ module "hbee" {
 
   function_base_name = "hbee"
   filename           = "../code/target/docker/hbee_lambda.zip"
-  handler            = "N/A"
   memory_size        = 2048
   timeout            = 10
-  runtime            = "provided"
 
   vpc_id  = module.vpc.vpc_id
   subnets = module.vpc.public_subnets
@@ -143,10 +141,8 @@ module "fuse" {
 
   function_base_name = "fuse"
   filename           = "../code/target/docker/fuse_lambda.zip"
-  handler            = "N/A"
   memory_size        = 2048
   timeout            = 30
-  runtime            = "provided"
 
   vpc_id  = module.vpc.vpc_id
   subnets = module.vpc.public_subnets

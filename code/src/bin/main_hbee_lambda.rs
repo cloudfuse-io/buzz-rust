@@ -1,14 +1,15 @@
 use std::error::Error;
 
 use buzz::models::HBeeEvent;
-use buzz::services::hbee::HBeeService;
+use buzz::services::hbee::{HBeeService, HttpCollector};
 use lambda_runtime::{error::HandlerError, lambda, Context};
 use serde_json::Value;
 
 async fn exec(event: Value) -> Result<(), Box<dyn Error>> {
     let hbee_event: HBeeEvent = serde_json::from_value(event)?;
     let parsed_plan = hbee_event.plan.parse()?;
-    let hbee_service = HBeeService::new().await;
+    let collector = Box::new(HttpCollector {});
+    let hbee_service = HBeeService::new(collector).await;
     hbee_service
         .execute_query(hbee_event.query_id, parsed_plan, hbee_event.hcomb_address)
         .await
