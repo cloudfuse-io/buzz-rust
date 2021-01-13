@@ -40,12 +40,9 @@ pub async fn call_do_put(
     results: Vec<RecordBatch>,
 ) -> Result<(), Box<dyn Error>> {
     // Create Flight client after delay, to leave time for the server to boot
-    tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
-
     let input = flight_utils::batch_vec_to_flight(&query_id, results).await?;
 
     let request = tonic::Request::new(input);
-
     let mut client = FlightServiceClient::connect(address.clone()).await?;
     // wait for the response to be complete but don't do anything with it
     client
