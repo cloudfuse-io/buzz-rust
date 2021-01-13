@@ -18,10 +18,18 @@ terraform {
   }
 }
 
-variable "profile" {}
+variable "profile" {
+  description = "The aws profile (from credentials file) to use to deploy/modify/destroy this infra"
+}
+
+variable "push_hcomb" {
+  description = "Option whether to push or not the latest version of the hcomb container to the registry"
+  default     = true
+}
 
 variable "git_revision" {
-  default = "unknown"
+  description = "A tag that tracks the git hash of the source code for this infra"
+  default     = "unknown"
 }
 
 provider "aws" {

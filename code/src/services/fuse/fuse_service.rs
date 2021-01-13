@@ -92,6 +92,11 @@ impl FuseService {
             .try_collect::<Vec<_>>()
             .await?;
 
+        println!(
+            "[fuse] hbee scheduling duration: {}",
+            start_schedule.elapsed().as_millis()
+        );
+
         // wait for hcombs to collect all the results and desplay them comb by comb
         println!("[fuse] collect hcombs");
         for hcomb_stream in hcomb_streams {
@@ -100,7 +105,7 @@ impl FuseService {
         }
 
         println!(
-            "[fuse] hbee run duration: {}",
+            "[fuse] hbee total duration: {}",
             start_schedule.elapsed().as_millis()
         );
         println!(

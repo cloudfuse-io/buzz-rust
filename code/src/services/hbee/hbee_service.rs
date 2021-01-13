@@ -41,10 +41,11 @@ impl HBeeService {
     ) -> Result<()> {
         println!("[hbee] execute query");
         let start = Instant::now();
-
         let query_res = self.query(plan).await;
+        println!("[hbee] query duration: {}", start.elapsed().as_millis());
+        let start = Instant::now();
         let exec_res = self.collector.send_back(query_id, query_res, address).await;
-        println!("[hbee] run duration: {}", start.elapsed().as_millis());
+        println!("[hbee] collector duration: {}", start.elapsed().as_millis());
         exec_res
     }
 

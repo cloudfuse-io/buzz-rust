@@ -49,6 +49,8 @@ resource "aws_ecr_repository" "hcomb_repo" {
 }
 
 resource "null_resource" "hcomb_push" {
+  count = var.push_hcomb ? 1 : 0
+
   triggers = {
     always_run = timestamp()
   }

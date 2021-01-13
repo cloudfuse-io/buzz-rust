@@ -81,7 +81,8 @@ deploy-hbee-tests: ask-target code/target/docker/hbee_tests.zip
 	cd infra; terraform apply \
 		-auto-approve \
 		--var profile=${PROFILE} \
-		--var git_revision=${GIT_REVISION}
+		--var git_revision=${GIT_REVISION} \
+		--var push_hcomb=false
 
 run-hbee-tests: 
 	aws lambda invoke \
