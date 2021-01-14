@@ -64,17 +64,19 @@ impl HCombManager for FargateHCombManager {
             .await
             {
                 Ok(Ok(())) => break,
-                Ok(Err(e)) if start.elapsed().as_secs() > timeout_sec => {
+                Ok(Err(e)) if start.elapsed().as_secs() >= timeout_sec => {
                     Err(internal_err!(
                         "Couldn't connect to hcomb for more than {}s with: {}",
-                        start.elapsed().as_millis(),
+                        timeout_sec,
                         e
                     ))?
                 }
-                Err(_) if start.elapsed().as_secs() > timeout_sec => Err(internal_err!(
-                    "Couldn't connect to hcomb for more than {}s because of timeouts",
-                    start.elapsed().as_millis()
-                ))?,
+                Err(_) if start.elapsed().as_secs() >= timeout_sec => {
+                    Err(internal_err!(
+                        "Couldn't connect to hcomb for more than {}s because of timeouts",
+                        timeout_sec
+                    ))?
+                }
                 Ok(Err(_)) | Err(_) => continue,
             }
         }

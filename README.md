@@ -57,3 +57,10 @@ The code can be deployed to AWS through terraform:
 - remember that you can specify the `default.env` file to avoid being prompted at each command
 - *backend* and *deploy* profiles can be the same. In this case both the terraform backend and the buzz stack will reside in the same AWS account
 - Some resources might not be completely initialized after the terraform script completes. It generates errors such as `(AccessDeniedException) when calling the Invoke operation`. In that case wait a few minutes and try again.
+
+## Running queries
+
+Limitations:
+- only SQL supported by DataFusion is supported by Buzz
+- only single datasource queries can be run (no join)
+- a Buzz stack can only read S3 in its own region (because of S3 Gateway Endpoint)

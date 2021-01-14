@@ -6,7 +6,7 @@ use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 async fn async_main() {
     let cache = RangeCache::new().await;
     // let file = S3FileAsync::new(
-    //     "eu-west-1",
+    //     "us-east-2",
     //     "cloudfuse-taxi-data",
     //     // "raw_small/2009/01/data.parquet",
     //     // 27301328,

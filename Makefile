@@ -86,6 +86,10 @@ run-integ-aws: ask-run-target
 			--output text \
 			/dev/null | base64 -d
 
+
+## hbee-tests is a specific deployment of the hbee to run isolated tests
+
+# you can call this only if deploy-all was allready succesfully executed
 deploy-hbee-tests: ask-deploy-target code/target/docker/hbee_tests.zip
 	@cd infra; ${terraform} workspace select dev
 	cd infra; ${terraform} apply \

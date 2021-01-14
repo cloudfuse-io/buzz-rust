@@ -4,28 +4,24 @@ use crate::datasource::{CatalogTable, StaticCatalogTable};
 use crate::models::SizedFile;
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
-pub fn nyc_taxi_cloudfuse_small() -> CatalogTable {
+/// shortened nyc taxi, hosted by cloudfuse
+pub fn nyc_taxi_cloudfuse_sample() -> CatalogTable {
     StaticCatalogTable::new(
         nyc_taxi_v1_schema(TimeUnit::Microsecond),
-        "eu-west-1".to_owned(),
+        "us-east-2".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
-        vec![
-            SizedFile {
-                key: "raw_small/2009/01/data.parquet".to_owned(),
-                length: 27301328,
-            },
-            SizedFile {
-                key: "raw_small/2009/01/data.parquet".to_owned(),
-                length: 27301328,
-            },
-        ],
+        vec![SizedFile {
+            key: "raw_small/2009/01/data.parquet".to_owned(),
+            length: 27301328,
+        }],
     )
 }
 
-pub fn nyc_taxi_cloudfuse_large() -> CatalogTable {
+/// complete nyc taxi files with 5M rows per rowgroups, hosted by cloudfuse
+pub fn nyc_taxi_cloudfuse_full() -> CatalogTable {
     StaticCatalogTable::new(
         nyc_taxi_v1_schema(TimeUnit::Microsecond),
-        "eu-west-1".to_owned(),
+        "us-east-2".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
         vec![
             SizedFile {
@@ -52,7 +48,8 @@ pub fn nyc_taxi_cloudfuse_large() -> CatalogTable {
     )
 }
 
-/// Note that some nyc parquet files hosted by Ursa Labs have many small rowgroups which is inefficient
+/// A single file of the nyc taxi parquet data hosted by Ursa Labs
+/// Note that some nyc parquet files hosted by Ursa Labs have many small row groups which is inefficient
 pub fn nyc_taxi_ursa_small() -> CatalogTable {
     StaticCatalogTable::new(
         nyc_taxi_v1_schema(TimeUnit::Nanosecond),
@@ -65,7 +62,8 @@ pub fn nyc_taxi_ursa_small() -> CatalogTable {
     )
 }
 
-/// Note that some nyc parquet files hosted by Ursa Labs have many small rowgroups which is inefficient
+/// A subset of the nyc taxi parquet files hosted by Ursa Labs
+/// Note that some nyc parquet files hosted by Ursa Labs have many small row groups which is inefficient
 pub fn nyc_taxi_ursa_large() -> CatalogTable {
     StaticCatalogTable::new(
         nyc_taxi_v1_schema(TimeUnit::Nanosecond),
@@ -91,6 +89,34 @@ pub fn nyc_taxi_ursa_large() -> CatalogTable {
             SizedFile {
                 key: "2009/05/data.parquet".to_owned(),
                 length: 489248585,
+            },
+            SizedFile {
+                key: "2009/06/data.parquet".to_owned(),
+                length: 465578495,
+            },
+            SizedFile {
+                key: "2009/07/data.parquet".to_owned(),
+                length: 448227037,
+            },
+            SizedFile {
+                key: "2009/08/data.parquet".to_owned(),
+                length: 450774566,
+            },
+            SizedFile {
+                key: "2009/09/data.parquet".to_owned(),
+                length: 460835784,
+            },
+            SizedFile {
+                key: "2009/10/data.parquet".to_owned(),
+                length: 517609313,
+            },
+            SizedFile {
+                key: "2009/11/data.parquet".to_owned(),
+                length: 471148697,
+            },
+            SizedFile {
+                key: "2009/12/data.parquet".to_owned(),
+                length: 479899902,
             },
         ],
     )

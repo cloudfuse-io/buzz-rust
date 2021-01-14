@@ -22,7 +22,7 @@ pub async fn start_fuse() -> BuzzResult<()> {
         query_planner,
     );
 
-    service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_cloudfuse_large());
+    service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_ursa_large());
 
     println!("[fuse] initialized, starting query...");
 
