@@ -12,7 +12,7 @@ const QUERY_ID: &str = "test_query";
 
 async fn new_plan() -> Result<LogicalPlan, Box<dyn Error>> {
     let mut query_planner = QueryPlanner::new();
-    query_planner.add_catalog("nyc_taxi", example_catalog::nyc_taxi_large());
+    query_planner.add_catalog("nyc_taxi", example_catalog::nyc_taxi_ursa_large());
     let steps = vec![
         BuzzStep {
             sql: "SELECT payment_type, COUNT(payment_type) as payment_type_count, SUM(fare_amount) as fare_amount_sum FROM nyc_taxi GROUP BY payment_type".to_owned(),

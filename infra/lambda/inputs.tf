@@ -1,7 +1,10 @@
 # global configuration
+
 module "env" {
   source = "../env"
 }
+
+variable "region_name" {}
 
 # function related configuration
 
@@ -30,7 +33,12 @@ variable "environment" {
   type = map(any)
 }
 
-# VPC -> if one is set all should be set
+# VPC 
+
+variable "in_vpc" {
+  description = "Set this to true if the lambda should be placed into a VPC. In that case vpc_id and subnets should also be specified"
+  default     = false
+}
 
 variable "vpc_id" {
   default = ""

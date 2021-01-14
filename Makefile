@@ -1,22 +1,29 @@
-GIT_REVISION = `git rev-parse --short HEAD``git diff --quiet HEAD -- || echo "-dirty"`
-PROFILE = $(eval PROFILE := $(shell bash -c 'read -p "Profile: " input; echo $$input'))$(PROFILE)
-STAGE = $(eval STAGE := $(shell bash -c 'read -p "Stage: " input; echo $$input'))$(STAGE)
 SHELL := /bin/bash # Use bash syntax
-REGION := eu-west-1
+GIT_REVISION = `git rev-parse --short HEAD``git diff --quiet HEAD -- || echo "-dirty"`
+
+include default.env
+DEPLOY_PROFILE ?= $(eval DEPLOY_PROFILE := $(shell bash -c 'read -p "Deploy Profile: " input; echo $$input'))$(DEPLOY_PROFILE)
+BACKEND_PROFILE ?= $(eval BACKEND_PROFILE := $(shell bash -c 'read -p "Backend Profile: " input; echo $$input'))$(BACKEND_PROFILE)
+STAGE ?= $(eval STAGE := $(shell bash -c 'read -p "Stage: " input; echo $$input'))$(STAGE)
+REGION ?= $(eval REGION := $(shell bash -c 'read -p "Region: " input; echo $$input'))$(REGION)
+terraform = AWS_PROFILE=${BACKEND_PROFILE} terraform
 
 ## global commands
 
 check-dirty:
 	@git diff --quiet HEAD -- || { echo "ERROR: commit first, or use 'make force-deploy' to deploy dirty"; exit 1; }
 
-ask-target:
-	@echo "Lets deploy ${GIT_REVISION} in ${STAGE} with profile ${PROFILE}..."
+ask-run-target:
+	@echo "Running with profile ${DEPLOY_PROFILE}..."
+
+ask-deploy-target:
+	@echo "Deploying ${GIT_REVISION} in ${STAGE} with profile ${DEPLOY_PROFILE}, backend profile ${BACKEND_PROFILE}..."
 
 # required with AWS CLI v2
 docker-login:
-	aws ecr get-login-password --region "${REGION}" --profile=${PROFILE} | \
+	aws ecr get-login-password --region "${REGION}" --profile=${DEPLOY_PROFILE} | \
 	docker login --username AWS --password-stdin \
-		"$(shell aws sts get-caller-identity --profile=${PROFILE} --query 'Account' --output text).dkr.ecr.${REGION}.amazonaws.com"
+		"$(shell aws sts get-caller-identity --profile=${DEPLOY_PROFILE} --query 'Account' --output text).dkr.ecr.${REGION}.amazonaws.com"
 
 test:
 	cd code; RUST_BACKTRACE=1 cargo test
@@ -41,55 +48,59 @@ package-hcomb:
 		--target runtime-stage \
 		.
 
-run-integ-local:
-	cd code; cargo run --bin integ
+run-integ-local: ask-run-target
+	cd code; AWS_PROFILE=${DEPLOY_PROFILE} cargo run --bin integ
 	
-run-integ-docker:
+run-integ-docker: ask-run-target
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml build
-	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -f docker/docker-compose.yml up --abort-on-container-exit
+	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 AWS_PROFILE=${DEPLOY_PROFILE} docker-compose -f docker/docker-compose.yml up --abort-on-container-exit
 
-run-integ-aws:
+example-direct-s3: ask-run-target
+	cd code; RUST_BACKTRACE=1 AWS_PROFILE=${DEPLOY_PROFILE} cargo run --example direct_s3
+
+init:
+	@cd infra; ${terraform} init
+	@cd infra; ${terraform} workspace new ${STAGE} &>/dev/null || echo "${STAGE} already exists"
+
+destroy: ask-deploy-target
+	cd infra; ${terraform} destroy \
+		--var profile=${DEPLOY_PROFILE} \
+		--var region_name=${REGION}
+
+deploy-all: ask-deploy-target package-hcomb package-lambdas
+	@echo "DEPLOYING ${GIT_REVISION} on ${STAGE}..."
+	@cd infra; ${terraform} workspace select ${STAGE}
+	@cd infra; ${terraform} apply \
+		--var profile=${DEPLOY_PROFILE} \
+		--var region_name=${REGION} \
+		--var git_revision=${GIT_REVISION}
+	@echo "${GIT_REVISION} DEPLOYED !!!"
+
+run-integ-aws: ask-run-target
 	aws lambda invoke \
-			--function-name $(shell bash -c 'cd infra; terraform output fuse_lambda_name') \
+			--function-name $(shell bash -c 'cd infra; ${terraform} output fuse_lambda_name') \
 			--log-type Tail \
 			--region ${REGION} \
-			--profile ${PROFILE} \
+			--profile ${DEPLOY_PROFILE} \
 			--query 'LogResult' \
 			--output text \
 			/dev/null | base64 -d
 
-example-direct-s3:
-	cd code; RUST_BACKTRACE=1 cargo run --example direct_s3
-
-init:
-	@cd infra; terraform init
-	@cd infra; terraform workspace new ${STAGE} &>/dev/null || echo "${STAGE} already exists"
-
-destroy:
-	cd infra; terraform destroy --var generic_playground_file=${GEN_PLAY_FILE}
-
-force-deploy: ask-target package-hcomb package-lambdas
-	@echo "DEPLOYING ${GIT_REVISION} on ${STAGE}..."
-	@cd infra; terraform workspace select ${STAGE}
-	@cd infra; terraform apply \
-		--var profile=${PROFILE} \
-		--var git_revision=${GIT_REVISION}
-	@echo "${GIT_REVISION} DEPLOYED !!!"
-
-deploy-hbee-tests: ask-target code/target/docker/hbee_tests.zip
-	@cd infra; terraform workspace select dev
-	cd infra; terraform apply \
+deploy-hbee-tests: ask-deploy-target code/target/docker/hbee_tests.zip
+	@cd infra; ${terraform} workspace select dev
+	cd infra; ${terraform} apply \
 		-auto-approve \
-		--var profile=${PROFILE} \
+		--var profile=${DEPLOY_PROFILE} \
+		--var region_name=${REGION} \
 		--var git_revision=${GIT_REVISION} \
 		--var push_hcomb=false
 
-run-hbee-tests: 
+run-hbee-tests: ask-run-target
 	aws lambda invoke \
-		--function-name $(shell bash -c 'cd infra; terraform output hbee_tests_lambda_name') \
+		--function-name $(shell bash -c 'cd infra; ${terraform} output hbee_tests_lambda_name') \
 		--log-type Tail \
 		--region ${REGION} \
-		--profile ${PROFILE} \
+		--profile ${DEPLOY_PROFILE} \
 		--query 'LogResult' \
 		--output text \
 		/dev/null | base64 -d

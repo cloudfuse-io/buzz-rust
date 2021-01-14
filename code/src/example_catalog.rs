@@ -4,9 +4,9 @@ use crate::datasource::{CatalogTable, StaticCatalogTable};
 use crate::models::SizedFile;
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
-pub fn nyc_taxi_small() -> CatalogTable {
+pub fn nyc_taxi_cloudfuse_small() -> CatalogTable {
     StaticCatalogTable::new(
-        nyc_taxi_schema(),
+        nyc_taxi_v1_schema(TimeUnit::Microsecond),
         "eu-west-1".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
         vec![
@@ -22,9 +22,9 @@ pub fn nyc_taxi_small() -> CatalogTable {
     )
 }
 
-pub fn nyc_taxi_large() -> CatalogTable {
+pub fn nyc_taxi_cloudfuse_large() -> CatalogTable {
     StaticCatalogTable::new(
-        nyc_taxi_schema(),
+        nyc_taxi_v1_schema(TimeUnit::Microsecond),
         "eu-west-1".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
         vec![
@@ -52,9 +52,23 @@ pub fn nyc_taxi_large() -> CatalogTable {
     )
 }
 
-pub fn nyc_taxi_ursa() -> CatalogTable {
+/// Note that some nyc parquet files hosted by Ursa Labs have many small rowgroups which is inefficient
+pub fn nyc_taxi_ursa_small() -> CatalogTable {
     StaticCatalogTable::new(
-        nyc_taxi_schema(),
+        nyc_taxi_v1_schema(TimeUnit::Nanosecond),
+        "us-east-2".to_owned(),
+        "ursa-labs-taxi-data".to_owned(),
+        vec![SizedFile {
+            key: "2009/01/data.parquet".to_owned(),
+            length: 461966527,
+        }],
+    )
+}
+
+/// Note that some nyc parquet files hosted by Ursa Labs have many small rowgroups which is inefficient
+pub fn nyc_taxi_ursa_large() -> CatalogTable {
+    StaticCatalogTable::new(
+        nyc_taxi_v1_schema(TimeUnit::Nanosecond),
         "us-east-2".to_owned(),
         "ursa-labs-taxi-data".to_owned(),
         vec![
@@ -82,17 +96,18 @@ pub fn nyc_taxi_ursa() -> CatalogTable {
     )
 }
 
-fn nyc_taxi_schema() -> Arc<Schema> {
+/// schema found in earlier nyc taxi files (e.g 2009)
+fn nyc_taxi_v1_schema(time_unit: TimeUnit) -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("vendor_id", DataType::Utf8, true),
         Field::new(
             "pickup_at",
-            DataType::Timestamp(TimeUnit::Microsecond, Option::None),
+            DataType::Timestamp(time_unit.clone(), Option::None),
             true,
         ),
         Field::new(
             "dropoff_at",
-            DataType::Timestamp(TimeUnit::Microsecond, Option::None),
+            DataType::Timestamp(time_unit.clone(), Option::None),
             true,
         ),
         Field::new("passenger_count", DataType::Int8, true),
@@ -112,3 +127,35 @@ fn nyc_taxi_schema() -> Arc<Schema> {
         Field::new("total_amount", DataType::Float32, true),
     ]))
 }
+
+// /// schema found in latest nyc taxi files (e.g. 2019)
+// fn nyc_taxi_v2_schema() -> Arc<Schema> {
+//     Arc::new(Schema::new(vec![
+//         Field::new("vendor_id", DataType::Utf8, true),
+//         Field::new(
+//             "pickup_at",
+//             DataType::Timestamp(TimeUnit::Microsecond, Option::None),
+//             true,
+//         ),
+//         Field::new(
+//             "dropoff_at",
+//             DataType::Timestamp(TimeUnit::Microsecond, Option::None),
+//             true,
+//         ),
+//         Field::new("passenger_count", DataType::Int8, true),
+//         Field::new("trip_distance", DataType::Float32, true),
+//         Field::new("rate_code_id", DataType::Utf8, true),
+//         Field::new("store_and_fwd_flag", DataType::Utf8, true),
+//         Field::new("pickup_location_id", DataType::Int32, true),
+//         Field::new("dropoff_location_id", DataType::Int32, true),
+//         Field::new("payment_type", DataType::Utf8, true),
+//         Field::new("fare_amount", DataType::Float32, true),
+//         Field::new("extra", DataType::Float32, true),
+//         Field::new("mta_tax", DataType::Float32, true),
+//         Field::new("tip_amount", DataType::Float32, true),
+//         Field::new("tolls_amount", DataType::Float32, true),
+//         Field::new("improvement_surcharge", DataType::Float32, true),
+//         Field::new("total_amount", DataType::Float32, true),
+//         Field::new("congestion_surcharge", DataType::Float32, true),
+//     ]))
+// }

@@ -1,7 +1,7 @@
 ##### HBEE #####
 
 resource "aws_iam_policy" "s3-additional-policy" {
-  name        = "${module.env.module_name}_s3_access_${module.env.region_name}_${module.env.stage}"
+  name        = "${module.env.module_name}_s3_access_${var.region_name}_${module.env.stage}"
   description = "additional policy for s3 access"
 
   policy = <<EOF
@@ -24,10 +24,12 @@ module "hbee" {
   source = "./lambda"
 
   function_base_name = "hbee"
+  region_name        = var.region_name
   filename           = "../code/target/docker/hbee_lambda.zip"
   memory_size        = 2048
   timeout            = 10
 
+  in_vpc  = true
   vpc_id  = module.vpc.vpc_id
   subnets = module.vpc.public_subnets
 
@@ -67,6 +69,7 @@ module "hcomb" {
   source = "./fargate"
 
   name                        = "hcomb"
+  region_name                 = var.region_name
   vpc_id                      = module.vpc.vpc_id
   task_cpu                    = 2048
   task_memory                 = 4096
@@ -82,14 +85,14 @@ module "hcomb" {
     value = var.git_revision
     }, {
     name  = "AWS_REGION"
-    value = module.env.region_name
+    value = var.region_name
   }]
 }
 
 ##### FUSE #####
 
 resource "aws_iam_policy" "fargate-additional-policy" {
-  name        = "${module.env.module_name}_fargate_access_${module.env.region_name}_${module.env.stage}"
+  name        = "${module.env.module_name}_fargate_access_${var.region_name}_${module.env.stage}"
   description = "additional policy for fargate access"
 
   policy = <<EOF
@@ -119,7 +122,7 @@ EOF
 }
 
 resource "aws_iam_policy" "lambda-additional-policy" {
-  name        = "${module.env.module_name}_lambda_access_${module.env.region_name}_${module.env.stage}"
+  name        = "${module.env.module_name}_lambda_access_${var.region_name}_${module.env.stage}"
   description = "additional policy for lambda access"
 
   policy = <<EOF
@@ -142,10 +145,12 @@ module "fuse" {
   source = "./lambda"
 
   function_base_name = "fuse"
+  region_name        = var.region_name
   filename           = "../code/target/docker/fuse_lambda.zip"
   memory_size        = 3008
   timeout            = 30
 
+  in_vpc  = true
   vpc_id  = module.vpc.vpc_id
   subnets = module.vpc.public_subnets
 

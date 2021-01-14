@@ -26,7 +26,7 @@ pub async fn start_fuse(
         query_planner,
     );
 
-    service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_small());
+    service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_cloudfuse_small());
 
     service
         .run(BuzzQuery {

@@ -19,7 +19,11 @@ terraform {
 }
 
 variable "profile" {
-  description = "The aws profile (from credentials file) to use to deploy/modify/destroy this infra"
+  description = "The AWS profile (from credentials file) to use to deploy/modify/destroy this infra"
+}
+
+variable "region_name" {
+  description = "The AWS region name (eu-west-1, us-east2...) in which the stack will be deployed"
 }
 
 variable "push_hcomb" {
@@ -34,7 +38,7 @@ variable "git_revision" {
 
 provider "aws" {
   profile = var.profile
-  region  = module.env.region_name
+  region  = var.region_name
 }
 
 module "env" {

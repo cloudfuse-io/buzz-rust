@@ -2,6 +2,8 @@ module "env" {
   source = "../env"
 }
 
+variable "region_name" {}
+
 variable "name" {}
 
 variable "environment" {

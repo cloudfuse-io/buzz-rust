@@ -25,7 +25,7 @@ locals {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.fargate_logging.name
-          awslogs-region        = module.env.region_name
+          awslogs-region        = var.region_name
           awslogs-stream-prefix = "ecs"
         }
       }

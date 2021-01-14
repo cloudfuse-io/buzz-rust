@@ -1,5 +1,5 @@
 resource "aws_iam_role" "lambda_role" {
-  name = "${module.env.tags["module"]}_${var.function_base_name}_${module.env.region_name}_${module.env.stage}"
+  name = "${module.env.tags["module"]}_${var.function_base_name}_${var.region_name}_${module.env.stage}"
 
   assume_role_policy = <<EOF
 {
@@ -21,7 +21,7 @@ EOF
 }
 
 resource "aws_iam_role_policy" "lambda_default_policy" {
-  name = "${module.env.tags["module"]}_${var.function_base_name}_${module.env.region_name}_${module.env.stage}"
+  name = "${module.env.tags["module"]}_${var.function_base_name}_${var.region_name}_${module.env.stage}"
   role = aws_iam_role.lambda_role.id
 
   policy = <<EOF

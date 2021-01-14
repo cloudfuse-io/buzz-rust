@@ -20,12 +20,14 @@ resource "aws_security_group" "service_endpoint" {
   tags = module.env.tags
 }
 
+data "aws_availability_zones" "available" {}
+
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
   name           = "${module.env.module_name}-vpc-${module.env.stage}"
   cidr           = module.env.vpc_cidr
-  azs            = module.env.vpc_azs
+  azs            = slice(data.aws_availability_zones.available.names, 0, length(module.env.subnet_cidrs))
   public_subnets = module.env.subnet_cidrs
 
   enable_nat_gateway = false
@@ -67,7 +69,7 @@ resource "aws_ecs_cluster" "hcomb_cluster" {
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${module.env.module_name}_task_execution_${module.env.stage}_${module.env.region_name}"
+  name = "${module.env.module_name}_task_execution_${module.env.stage}_${var.region_name}"
 
   assume_role_policy = <<EOF
 {
@@ -89,7 +91,7 @@ EOF
 }
 
 resource "aws_iam_role_policy" "ecs_task_execution_policy" {
-  name = "${module.env.module_name}_task_execution_${module.env.stage}_${module.env.region_name}"
+  name = "${module.env.module_name}_task_execution_${module.env.stage}_${var.region_name}"
   role = aws_iam_role.ecs_task_execution_role.id
 
   policy = <<EOF
