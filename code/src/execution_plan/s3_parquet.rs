@@ -61,7 +61,7 @@ impl ParquetExec {
 
     /// Read the footer and schedule the downloads of all the required chunks
     async fn init_file(&self, partition: usize) -> DataFusionResult<()> {
-        Self::download_footer(self.files[partition].clone());
+        let end_dl_chunk_start = Self::download_footer(self.files[partition].clone());
         let file_schema = self.file_schema.clone();
         let file = self.files[partition].clone();
         let projection = self.projection.clone();
@@ -87,7 +87,9 @@ impl ParquetExec {
                     let rg_metadata = metadata.row_group(i);
                     let col_metadata = rg_metadata.column(*proj);
                     let (start, length) = col_metadata.byte_range();
-                    file.prefetch(start, length as usize);
+                    if start < end_dl_chunk_start {
+                        file.prefetch(start, length as usize);
+                    }
                 }
             }
             Ok(())
@@ -96,13 +98,15 @@ impl ParquetExec {
         .unwrap()
     }
 
-    fn download_footer(file: S3FileAsync) {
+    // returns the start of the downloaded chunk
+    fn download_footer(file: S3FileAsync) -> u64 {
         let end_length = 1024 * 1024;
         let (end_start, end_length) = match file.len().checked_sub(end_length) {
             Some(val) => (val, end_length),
             None => (0, file.len()),
         };
         file.prefetch(end_start, end_length as usize);
+        end_start
     }
 }
 

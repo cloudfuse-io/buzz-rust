@@ -189,12 +189,6 @@ impl RangeCache {
         start: u64,
         length: usize,
     ) {
-        println!(
-            "[hbee] {} schedule ({},{})",
-            chrono::Utc::now().to_rfc3339(),
-            start,
-            length,
-        );
         let mut data_guard = self.data.lock().unwrap();
         let file_map = data_guard
             .entry((downloader_id.clone(), file_id.clone()))
@@ -223,7 +217,7 @@ impl RangeCache {
         let mut data_guard = self.data.lock().unwrap();
         let identifier = (downloader_id.clone(), file_id.clone());
         let file_map = data_guard.get(&identifier).ok_or(internal_err!(
-            "No download scheduled for: {} / {}",
+            "No download scheduled for file: (donwloader={},file_id={})",
             &downloader_id,
             &file_id,
         ))?;
@@ -241,14 +235,12 @@ impl RangeCache {
         }
 
         let before = before.ok_or(internal_err!(
-            "Download not scheduled: (start={},end={})",
+            "Download not scheduled: (start={},length={})",
             start,
             length,
         ))?;
 
         let unused_start = start - before.0;
-
-        println!("[hbee] Waited for dl {}", start_time.elapsed().as_millis());
 
         self.stats
             .waiting_download_ms
@@ -258,7 +250,7 @@ impl RangeCache {
             Download::Done(bytes) => {
                 ensure!(
                     bytes.len() >= unused_start as usize + length,
-                    "Download not scheduled: (start={},end={})",
+                    "Download not scheduled (overflow right): (start={},length={})",
                     start,
                     length,
                 );
