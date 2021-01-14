@@ -35,10 +35,10 @@ pub struct FargateHCombManager {
 }
 
 impl FargateHCombManager {
-    pub fn new(region: &str) -> Self {
-        Self {
-            client: FargateCreationClient::new(region),
-        }
+    pub fn try_new() -> Result<Self> {
+        Ok(Self {
+            client: FargateCreationClient::try_new()?,
+        })
     }
 }
 

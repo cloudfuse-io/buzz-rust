@@ -57,9 +57,9 @@ pub struct LambdaHBeeScheduler {
 }
 
 impl LambdaHBeeScheduler {
-    pub fn try_new(region: &str) -> Result<Self> {
+    pub fn try_new() -> Result<Self> {
         Ok(Self {
-            client: LambdaInvokeClient::try_new(region)?,
+            client: LambdaInvokeClient::try_new()?,
         })
     }
 }

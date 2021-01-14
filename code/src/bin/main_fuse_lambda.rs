@@ -11,8 +11,8 @@ use lambda_runtime::{error::HandlerError, lambda, Context};
 use serde_json::Value;
 
 pub async fn start_fuse() -> BuzzResult<()> {
-    let hbee_scheduler = LambdaHBeeScheduler::try_new("eu-west-1")?;
-    let hcomb_manager = FargateHCombManager::new("eu-west-1");
+    let hbee_scheduler = LambdaHBeeScheduler::try_new()?;
+    let hcomb_manager = FargateHCombManager::try_new()?;
     let hcomb_scheduler = HttpHCombScheduler {};
     let query_planner = QueryPlanner::new();
     let mut service = FuseService::new(

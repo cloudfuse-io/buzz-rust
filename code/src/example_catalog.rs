@@ -52,6 +52,36 @@ pub fn nyc_taxi_large() -> CatalogTable {
     )
 }
 
+pub fn nyc_taxi_ursa() -> CatalogTable {
+    StaticCatalogTable::new(
+        nyc_taxi_schema(),
+        "us-east-2".to_owned(),
+        "ursa-labs-taxi-data".to_owned(),
+        vec![
+            SizedFile {
+                key: "2009/01/data.parquet".to_owned(),
+                length: 461966527,
+            },
+            SizedFile {
+                key: "2009/02/data.parquet".to_owned(),
+                length: 436405669,
+            },
+            SizedFile {
+                key: "2009/03/data.parquet".to_owned(),
+                length: 474795751,
+            },
+            SizedFile {
+                key: "2009/04/data.parquet".to_owned(),
+                length: 470914229,
+            },
+            SizedFile {
+                key: "2009/05/data.parquet".to_owned(),
+                length: 489248585,
+            },
+        ],
+    )
+}
+
 fn nyc_taxi_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("vendor_id", DataType::Utf8, true),

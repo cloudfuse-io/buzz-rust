@@ -15,10 +15,10 @@ pub struct LambdaInvokeClient {
 }
 
 impl LambdaInvokeClient {
-    pub fn try_new(region: &str) -> Result<Self> {
+    pub fn try_new() -> Result<Self> {
         let config = env::get_lambda_config()?;
         Ok(Self {
-            client: new_client(region),
+            client: new_client(&config.aws_region),
             lambda_name: config.hbee_lambda_name,
         })
     }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::error::{BuzzError, Result};
-use crate::models::env;
+use crate::models::env::{self, FargateConfig};
 use rusoto_core::Region;
 use rusoto_ecs::{
     AwsVpcConfiguration, DescribeTasksRequest, Ecs, EcsClient, ListTasksRequest,
@@ -14,13 +14,16 @@ use tokio::time::timeout;
 
 pub struct FargateCreationClient {
     client: Arc<EcsClient>,
+    config: Arc<FargateConfig>,
 }
 
 impl FargateCreationClient {
-    pub fn new(region: &str) -> Self {
-        Self {
-            client: new_client(region),
-        }
+    pub fn try_new() -> Result<Self> {
+        let config = Arc::new(env::get_fargate_config()?);
+        Ok(Self {
+            client: new_client(&config.aws_region),
+            config,
+        })
     }
 }
 
@@ -29,7 +32,7 @@ impl FargateCreationClient {
     /// The task might not be ready to receive requests yet.
     pub async fn create_new(&self) -> Result<String> {
         let start = Instant::now();
-        let config = env::get_fargate_config()?;
+        let config = Arc::clone(&self.config);
 
         let mut task_arn = self
             .get_existing_task(config.hcomb_cluster_name.clone())
@@ -38,10 +41,10 @@ impl FargateCreationClient {
         if task_arn.is_none() {
             task_arn = Some(
                 self.start_task(
-                    config.hcomb_task_def_arn,
+                    config.hcomb_task_def_arn.clone(),
                     config.hcomb_cluster_name.clone(),
-                    config.public_subnets,
-                    config.hcomb_task_sg_id,
+                    config.public_subnets.clone(),
+                    config.hcomb_task_sg_id.clone(),
                 )
                 .await?,
             );
