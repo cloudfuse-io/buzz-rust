@@ -37,7 +37,7 @@ name = "fuse_lambda"
 path = "src/bin/main_fuse_lambda.rs"
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "d61e185", feature=["prettyprint"] }
+arrow = { git = "https://github.com/apache/arrow", rev = "d61e185" }
 parquet = { git = "https://github.com/apache/arrow", rev = "d61e185" }
 datafusion = { git = "https://github.com/apache/arrow", rev = "d61e185" }
 arrow-flight = { git = "https://github.com/apache/arrow", rev = "d61e185" }
