@@ -60,7 +60,34 @@ The code can be deployed to AWS through terraform:
 
 ## Running queries
 
-Limitations:
-- only SQL supported by DataFusion is supported by Buzz
+Example query (cf. [`code/examples/query.json`](code/examples/query.json)):
+```
+{
+    "steps": [
+        {
+            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi_ursa_large GROUP BY payment_type",
+            "name": "nyc_taxi_map",
+            "step_type": "HBee"
+        },
+        {
+            "sql": "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type",
+            "name": "nyc_taxi_reduce",
+            "step_type": "HComb"
+        }
+    ],
+    "capacity": {
+        "zones": 1
+    }
+}
+```
+
+A query is a succession of steps. The `HBee` step type means that this part of the query runs in cloud functions (e.g AWS Lambda). The `HComb` step type means the associated query part runs on the container reducers (e.g AWS Fargate). The output of one step can be used as input (`FROM` statement) of the next step by refering to it by the step's name.
+
+The `capacity.zone` field indicates the number of availability zones (and thus containers) used for `HComb` steps. This can be used to improve reducing capability and minimize cross-AZ data exchanges (both slower and more expensive).
+
+Current limitations:
+- only SQL supported by [DataFusion](https://github.com/apache/arrow/tree/master/rust/datafusion) is supported by Buzz
+- only single zone capacity is supported
+- only two-step queries are supported (`HBee` then `HComb`)
 - only single datasource queries can be run (no join)
 - a Buzz stack can only read S3 in its own region (because of S3 Gateway Endpoint)

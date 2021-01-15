@@ -47,7 +47,7 @@ impl QueryPlanner {
             query_steps.len() == 2
                 && query_steps[0].step_type == BuzzStepType::HBee
                 && query_steps[1].step_type == BuzzStepType::HComb,
-            "You must have one exactly one hbee step followed by one hcomb step for now"
+            "You must have one exactly one HBee step followed by one HComb step for now"
         );
 
         let bee_df = self.execution_context.sql(&query_steps[0].sql)?;
