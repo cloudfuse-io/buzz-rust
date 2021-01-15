@@ -19,6 +19,8 @@ pub enum BuzzError {
     ParquetError(ParquetError),
     /// Wraps an error from the DataFusion crate
     DataFusionError(DataFusionError),
+    /// A bad request was sent to Buzz
+    BadRequest(String),
     /// Error associated to I/O operations and associated traits.
     IoError(io::Error),
     /// Error returned on a branch that we know it is possible
@@ -88,6 +90,7 @@ impl BuzzError {
             BuzzError::ArrowError(ref desc) => format!("{}", desc),
             BuzzError::ParquetError(ref desc) => format!("{}", desc),
             BuzzError::DataFusionError(ref desc) => format!("{}", desc),
+            BuzzError::BadRequest(ref desc) => format!("{}", desc),
             BuzzError::IoError(ref desc) => format!("{}", desc),
             BuzzError::NotImplemented(ref desc) => format!("{}", desc),
             BuzzError::Internal(ref desc) => format!("{}", desc),
@@ -135,6 +138,9 @@ impl Display for BuzzError {
                 write!(f, "DataFusion error: {}", desc)
             }
             BuzzError::IoError(ref desc) => write!(f, "IO error: {}", desc),
+            BuzzError::BadRequest(ref desc) => {
+                write!(f, "Invalid request: {}", desc)
+            }
             BuzzError::NotImplemented(ref desc) => {
                 write!(f, "This feature is not implemented: {}", desc)
             }

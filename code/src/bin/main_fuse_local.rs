@@ -1,8 +1,27 @@
 use buzz::example_catalog;
-use buzz::models::query::{BuzzQuery, BuzzStep, BuzzStepType, HCombCapacity};
 use buzz::services::fuse::{
     FuseService, HttpHCombScheduler, QueryPlanner, TestHBeeScheduler, TestHCombManager,
 };
+
+const QUERY: &'static str = r#"
+{
+    "steps": [
+        {
+            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi GROUP BY payment_type",
+            "name": "nyc_taxi_map",
+            "step_type": "HBee"
+        },
+        {
+            "sql": "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type",
+            "name": "nyc_taxi_reduce",
+            "step_type": "HComb"
+        }
+    ],
+    "capacity": {
+        "zones": 1
+    }
+}
+"#;
 
 pub async fn start_fuse(
     hbee_addr: &str,
@@ -28,27 +47,9 @@ pub async fn start_fuse(
 
     service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_cloudfuse_sample());
 
-    service
-        .run(BuzzQuery {
-            steps: vec![
-                BuzzStep {
-                    sql: "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi GROUP BY payment_type".to_owned(),
-                    name: "nyc_taxi_map".to_owned(),
-                    step_type: BuzzStepType::HBee,
-                },
-                BuzzStep {
-                    sql: "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type".to_owned(),
-                    name: "nyc_taxi_reduce".to_owned(),
-                    step_type: BuzzStepType::HComb,
-                },
-            ],
-            capacity: HCombCapacity {
-                ram: 1,
-                cores: 1,
-                zones: 1,
-            },
-        })
-        .await?;
+    let query = serde_json::from_str(QUERY)?;
+
+    service.run(query).await?;
     Ok(())
 }
 

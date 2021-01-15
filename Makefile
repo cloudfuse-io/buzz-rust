@@ -84,6 +84,7 @@ run-integ-aws: ask-run-target
 			--profile ${DEPLOY_PROFILE} \
 			--query 'LogResult' \
 			--output text \
+			--payload fileb://code/examples/query.json \
 			/dev/null | base64 -d
 
 
@@ -107,4 +108,5 @@ run-hbee-tests: ask-run-target
 		--profile ${DEPLOY_PROFILE} \
 		--query 'LogResult' \
 		--output text \
+		--payload fileb://code/examples/steps.json \
 		/dev/null | base64 -d
