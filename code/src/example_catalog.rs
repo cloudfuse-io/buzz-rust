@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use crate::datasource::{CatalogTable, StaticCatalogTable};
-use crate::models::SizedFile;
+use crate::datasource::{CatalogFile, CatalogTable, StaticCatalogTable};
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
 /// shortened nyc taxi, hosted by cloudfuse
@@ -10,10 +9,11 @@ pub fn nyc_taxi_cloudfuse_sample() -> CatalogTable {
         nyc_taxi_v1_schema(TimeUnit::Microsecond),
         "us-east-2".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
-        vec![SizedFile {
-            key: "raw_small/2009/01/data.parquet".to_owned(),
-            length: 27301328,
-        }],
+        vec![CatalogFile::new(
+            "raw_small/2009/01/data.parquet",
+            27301328,
+            &[],
+        )],
     )
 }
 
@@ -24,26 +24,11 @@ pub fn nyc_taxi_cloudfuse_full() -> CatalogTable {
         "us-east-2".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
         vec![
-            SizedFile {
-                key: "raw_5M/2009/01/data.parquet".to_owned(),
-                length: 388070114,
-            },
-            SizedFile {
-                key: "raw_5M/2009/02/data.parquet".to_owned(),
-                length: 368127982,
-            },
-            SizedFile {
-                key: "raw_5M/2009/03/data.parquet".to_owned(),
-                length: 398600815,
-            },
-            SizedFile {
-                key: "raw_5M/2009/04/data.parquet".to_owned(),
-                length: 396353841,
-            },
-            SizedFile {
-                key: "raw_5M/2009/05/data.parquet".to_owned(),
-                length: 410283205,
-            },
+            CatalogFile::new("raw_5M/2009/01/data.parquet", 388070114, &[]),
+            CatalogFile::new("raw_5M/2009/02/data.parquet", 368127982, &[]),
+            CatalogFile::new("raw_5M/2009/03/data.parquet", 398600815, &[]),
+            CatalogFile::new("raw_5M/2009/04/data.parquet", 396353841, &[]),
+            CatalogFile::new("raw_5M/2009/05/data.parquet", 410283205, &[]),
         ],
     )
 }
@@ -55,10 +40,7 @@ pub fn nyc_taxi_ursa_small() -> CatalogTable {
         nyc_taxi_v1_schema(TimeUnit::Nanosecond),
         "us-east-2".to_owned(),
         "ursa-labs-taxi-data".to_owned(),
-        vec![SizedFile {
-            key: "2009/01/data.parquet".to_owned(),
-            length: 461966527,
-        }],
+        vec![CatalogFile::new("2009/01/data.parquet", 461966527, &[])],
     )
 }
 
@@ -70,54 +52,18 @@ pub fn nyc_taxi_ursa_large() -> CatalogTable {
         "us-east-2".to_owned(),
         "ursa-labs-taxi-data".to_owned(),
         vec![
-            SizedFile {
-                key: "2009/01/data.parquet".to_owned(),
-                length: 461966527,
-            },
-            SizedFile {
-                key: "2009/02/data.parquet".to_owned(),
-                length: 436405669,
-            },
-            SizedFile {
-                key: "2009/03/data.parquet".to_owned(),
-                length: 474795751,
-            },
-            SizedFile {
-                key: "2009/04/data.parquet".to_owned(),
-                length: 470914229,
-            },
-            SizedFile {
-                key: "2009/05/data.parquet".to_owned(),
-                length: 489248585,
-            },
-            SizedFile {
-                key: "2009/06/data.parquet".to_owned(),
-                length: 465578495,
-            },
-            SizedFile {
-                key: "2009/07/data.parquet".to_owned(),
-                length: 448227037,
-            },
-            SizedFile {
-                key: "2009/08/data.parquet".to_owned(),
-                length: 450774566,
-            },
-            SizedFile {
-                key: "2009/09/data.parquet".to_owned(),
-                length: 460835784,
-            },
-            SizedFile {
-                key: "2009/10/data.parquet".to_owned(),
-                length: 517609313,
-            },
-            SizedFile {
-                key: "2009/11/data.parquet".to_owned(),
-                length: 471148697,
-            },
-            SizedFile {
-                key: "2009/12/data.parquet".to_owned(),
-                length: 479899902,
-            },
+            CatalogFile::new("2009/01/data.parquet", 461966527, &[]),
+            CatalogFile::new("2009/02/data.parquet", 436405669, &[]),
+            CatalogFile::new("2009/03/data.parquet", 474795751, &[]),
+            CatalogFile::new("2009/04/data.parquet", 470914229, &[]),
+            CatalogFile::new("2009/05/data.parquet", 489248585, &[]),
+            CatalogFile::new("2009/06/data.parquet", 465578495, &[]),
+            CatalogFile::new("2009/07/data.parquet", 448227037, &[]),
+            CatalogFile::new("2009/08/data.parquet", 450774566, &[]),
+            CatalogFile::new("2009/09/data.parquet", 460835784, &[]),
+            CatalogFile::new("2009/10/data.parquet", 517609313, &[]),
+            CatalogFile::new("2009/11/data.parquet", 471148697, &[]),
+            CatalogFile::new("2009/12/data.parquet", 479899902, &[]),
         ],
     )
 }
