@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::datasource::HBeeTable;
-use crate::error::{BuzzError, Result as BuzzResult};
+use crate::error::{BuzzError, Result};
 use crate::models::SizedFile;
 use crate::plan_utils;
 use arrow::array::*;
@@ -41,16 +41,16 @@ impl CatalogTable {
 
     /// Explore the catalog with the given `partition_filter` and generate the tables
     /// To be processed by each hbee.
-    pub async fn split(&self, partition_filters: &[Expr]) -> Vec<HBeeTable> {
-        self.source_table
-            .split(self.filter_catalog(partition_filters).await)
+    pub async fn split(&self, partition_filters: &[Expr]) -> Result<Vec<HBeeTable>> {
+        let files = self.filter_catalog(partition_filters).await?;
+        Ok(self.source_table.split(files))
     }
 
     /// Split expressions to (regular_exprs, parition_exprs)
     pub fn extract_partition_exprs(
         &self,
         exprs: Vec<Expr>,
-    ) -> BuzzResult<(Vec<Expr>, Vec<Expr>)> {
+    ) -> Result<(Vec<Expr>, Vec<Expr>)> {
         let mut regular_exprs = vec![];
         let mut partition_exprs = vec![];
         let partition_cols = self
@@ -76,40 +76,49 @@ impl CatalogTable {
     }
 
     /// Applies the given filters
-    async fn filter_catalog(&self, partition_filters: &[Expr]) -> Vec<SizedFile> {
+    async fn filter_catalog(&self, partition_filters: &[Expr]) -> Result<Vec<SizedFile>> {
         let phys_plan;
         {
             let mut context = ExecutionContext::new();
-            let mut df = context.read_table(self.source_table.file_table()).unwrap();
+            let mut df = context.read_table(self.source_table.file_table())?;
             if partition_filters.len() > 0 {
                 let filter_expr = plan_utils::merge_expr(partition_filters);
-                df = df.filter(filter_expr).unwrap();
+                df = df.filter(filter_expr)?;
             }
 
-            phys_plan = context.create_physical_plan(&df.to_logical_plan()).unwrap();
+            phys_plan = context.create_physical_plan(&df.to_logical_plan())?;
         }
 
-        let file_rec = datafusion::physical_plan::collect(phys_plan).await.unwrap();
+        let file_rec = datafusion::physical_plan::collect(phys_plan).await?;
 
         file_rec
             .iter()
-            .flat_map(|rec_batch| {
+            .map(|rec_batch| {
                 let key_array = rec_batch
                     .column(0)
                     .as_any()
                     .downcast_ref::<StringArray>()
-                    .unwrap();
+                    .ok_or(BuzzError::Execution(format!(
+                        "Invalid type for catalog keys"
+                    )))?;
                 let length_array = rec_batch
                     .column(1)
                     .as_any()
                     .downcast_ref::<UInt64Array>()
-                    .unwrap();
-                (0..rec_batch.num_rows()).map(move |i| SizedFile {
+                    .ok_or(BuzzError::Execution(format!(
+                        "Invalid type for catalog lengths"
+                    )))?;
+                let sized_files = (0..rec_batch.num_rows()).map(move |i| SizedFile {
                     key: key_array.value(i).to_owned(),
                     length: length_array.value(i),
-                })
+                });
+                Ok(sized_files)
             })
-            .collect::<Vec<_>>()
+            .flat_map(|rec_iter_res| match rec_iter_res {
+                Ok(rec_iter) => rec_iter.map(|rec| Ok(rec)).collect(),
+                Err(er) => vec![Err(er)],
+            })
+            .collect::<Result<Vec<_>>>()
     }
 }
 
@@ -163,7 +172,7 @@ mod tests {
             test_catalog::MockSplittableTable::new(nb_split, 0),
         ));
 
-        let result = catalog_table.filter_catalog(&[lit(true)]).await;
+        let result = catalog_table.filter_catalog(&[lit(true)]).await.unwrap();
         assert_eq!(result.len(), 5);
     }
 
@@ -174,12 +183,13 @@ mod tests {
             test_catalog::MockSplittableTable::new(nb_split, 1),
         ));
 
-        let result = catalog_table.filter_catalog(&[lit(true)]).await;
+        let result = catalog_table.filter_catalog(&[lit(true)]).await.unwrap();
         assert_eq!(result.len(), 5);
 
         let result = catalog_table
             .filter_catalog(&[col("part_key_1").eq(lit("part_value_002"))])
-            .await;
+            .await
+            .unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].key, "file_2");
     }

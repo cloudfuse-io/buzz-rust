@@ -151,7 +151,7 @@ impl QueryPlanner {
                     catalog_table.extract_partition_exprs(upper_lvl_filters)?;
                 let splitted_plans = catalog_table
                     .split(&partition_exprs)
-                    .await
+                    .await?
                     .into_iter()
                     .map(|item| {
                         Ok(self
