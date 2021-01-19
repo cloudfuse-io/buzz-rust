@@ -148,3 +148,39 @@ impl TableProvider for CatalogTable {
 //// Implems ////
 
 pub mod static_catalog;
+pub(crate) mod test_catalog;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::datasource::CatalogTable;
+    use datafusion::logical_plan::{col, lit};
+
+    #[tokio::test]
+    async fn test_filter_catalog() {
+        let nb_split = 5;
+        let catalog_table = CatalogTable::new(Box::new(
+            test_catalog::MockSplittableTable::new(nb_split, 0),
+        ));
+
+        let result = catalog_table.filter_catalog(&[lit(true)]).await;
+        assert_eq!(result.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_filter_partitioned_catalog() {
+        let nb_split = 5;
+        let catalog_table = CatalogTable::new(Box::new(
+            test_catalog::MockSplittableTable::new(nb_split, 1),
+        ));
+
+        let result = catalog_table.filter_catalog(&[lit(true)]).await;
+        assert_eq!(result.len(), 5);
+
+        let result = catalog_table
+            .filter_catalog(&[col("part_key_1").eq(lit("part_value_002"))])
+            .await;
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].key, "file_2");
+    }
+}

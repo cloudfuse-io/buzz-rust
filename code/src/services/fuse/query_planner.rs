@@ -180,13 +180,8 @@ impl QueryPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datasource::{CatalogTable, HBeeTable, S3ParquetTable, SplittableTable};
-    use crate::models::SizedFile;
-    use arrow::array::*;
-    use arrow::datatypes::DataType;
-    use arrow::datatypes::{Field, Schema, SchemaRef};
-    use arrow::record_batch::RecordBatch;
-    use datafusion::datasource::{MemTable, TableProvider};
+    use crate::datasource::CatalogTable;
+    use crate::datasource::MockSplittableTable;
 
     #[tokio::test]
     async fn test_simple_query() {
@@ -194,10 +189,7 @@ mod tests {
         let nb_split = 5;
         planner.add_catalog(
             "test",
-            CatalogTable::new(Box::new(MockSplittableTable {
-                nb_split,
-                partition_cols: vec![],
-            })),
+            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 0))),
         );
 
         let steps = vec![
@@ -248,15 +240,15 @@ mod tests {
         let nb_split = 5;
         planner.add_catalog(
             "test",
-            CatalogTable::new(Box::new(MockSplittableTable {
-                nb_split,
-                partition_cols: vec!["date".to_owned()],
-            })),
+            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 2))),
         );
 
         let steps = vec![
             BuzzStep {
-                sql: "SELECT * FROM test WHERE date>='2021-01-01' AND date<='2021-01-03'"
+                sql: "SELECT * FROM test WHERE 
+                part_key_2>='part_value_001' AND 
+                part_key_2<='part_value_003' AND
+                data_col=0"
                     .to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
@@ -280,15 +272,12 @@ mod tests {
         let nb_split = 5;
         planner.add_catalog(
             "test",
-            CatalogTable::new(Box::new(MockSplittableTable {
-                nb_split,
-                partition_cols: vec!["date".to_owned()],
-            })),
+            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 1))),
         );
 
         let steps = vec![
             BuzzStep {
-                sql: "SELECT * FROM test WHERE date='I am not even a date, dude!'"
+                sql: "SELECT * FROM test WHERE part_key_1='not_in_partition_value'"
                     .to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
@@ -312,10 +301,7 @@ mod tests {
         let nb_split = 5;
         planner.add_catalog(
             "test",
-            CatalogTable::new(Box::new(MockSplittableTable {
-                nb_split,
-                partition_cols: vec!["date".to_owned()],
-            })),
+            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 1))),
         );
 
         let steps = vec![
@@ -338,83 +324,5 @@ mod tests {
         let plan = plan_res.expect("The planner failed on a query with condition");
         assert_eq!(plan.zones.len(), 1);
         assert_eq!(plan.zones[0].hbee.len(), nb_split);
-    }
-
-    //// Test Fixtures: ////
-
-    /// A SplittableTable that splits into `nb_split` S3Parquet tables
-    /// `expected_exprs` is asserted to be present in `split(&[Expr])`
-    struct MockSplittableTable {
-        nb_split: usize,
-        partition_cols: Vec<String>,
-    }
-
-    /// `pattern_vec(pattern, len)` creates a vector of String of length `len`
-    macro_rules! pattern_vec {
-        ($x:expr, $y:expr) => {
-            (0..$y).map(|i| format!($x, i)).collect()
-        };
-    }
-
-    impl SplittableTable for MockSplittableTable {
-        fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTable> {
-            files
-                .into_iter()
-                .map(|file| {
-                    S3ParquetTable::new(
-                        "north-pole-1".to_owned(),
-                        "santas-bucket".to_owned(),
-                        vec![file],
-                        test_schema(),
-                    )
-                })
-                .collect::<Vec<_>>()
-        }
-        fn partition_columns(&self) -> &[String] {
-            &self.partition_cols
-        }
-        fn schema(&self) -> SchemaRef {
-            test_schema()
-        }
-        fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
-            let file_table_schema = Arc::new(Schema::new(vec![
-                Field::new("key", DataType::Utf8, false),
-                Field::new("length", DataType::UInt64, false),
-                Field::new("date", DataType::Utf8, false),
-            ]));
-
-            let keys = pattern_vec!("gift_{}", self.nb_split);
-            let lengths = vec![999999999 as u64; self.nb_split];
-            let parts = pattern_vec!("2021-01-{:02}", self.nb_split);
-
-            let batches = RecordBatch::try_new(
-                Arc::clone(&file_table_schema),
-                vec![
-                    Arc::new(StringArray::from(refvec(&keys))) as ArrayRef,
-                    Arc::new(UInt64Array::from(lengths)) as ArrayRef,
-                    Arc::new(StringArray::from(refvec(&parts))) as ArrayRef,
-                ],
-            )
-            .expect("Invalid test data");
-
-            Arc::new(
-                MemTable::try_new(file_table_schema, vec![vec![batches]])
-                    .expect("invalid test table"),
-            )
-        }
-    }
-
-    fn test_schema() -> SchemaRef {
-        Arc::new(Schema::new(vec![Field::new(
-            "data_col",
-            DataType::Int64,
-            true,
-        )]))
-    }
-
-    fn refvec(vec: &Vec<String>) -> Vec<Option<&str>> {
-        vec.iter()
-            .map(|item| Some(item.as_ref()))
-            .collect::<Vec<_>>()
     }
 }
