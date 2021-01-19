@@ -9,61 +9,121 @@ pub fn nyc_taxi_cloudfuse_sample() -> CatalogTable {
         nyc_taxi_v1_schema(TimeUnit::Microsecond),
         "us-east-2".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
+        vec!["month".to_owned()],
         vec![CatalogFile::new(
             "raw_small/2009/01/data.parquet",
             27301328,
-            &[],
+            vec!["2009/01".to_owned()],
         )],
     )
 }
 
 /// complete nyc taxi files with 5M rows per rowgroups, hosted by cloudfuse
-pub fn nyc_taxi_cloudfuse_full() -> CatalogTable {
+pub fn nyc_taxi_cloudfuse() -> CatalogTable {
     StaticCatalogTable::new(
         nyc_taxi_v1_schema(TimeUnit::Microsecond),
         "us-east-2".to_owned(),
         "cloudfuse-taxi-data".to_owned(),
+        vec!["month".to_owned()],
         vec![
-            CatalogFile::new("raw_5M/2009/01/data.parquet", 388070114, &[]),
-            CatalogFile::new("raw_5M/2009/02/data.parquet", 368127982, &[]),
-            CatalogFile::new("raw_5M/2009/03/data.parquet", 398600815, &[]),
-            CatalogFile::new("raw_5M/2009/04/data.parquet", 396353841, &[]),
-            CatalogFile::new("raw_5M/2009/05/data.parquet", 410283205, &[]),
+            CatalogFile::new(
+                "raw_5M/2009/01/data.parquet",
+                388070114,
+                vec!["2009/01".to_owned()],
+            ),
+            CatalogFile::new(
+                "raw_5M/2009/02/data.parquet",
+                368127982,
+                vec!["2009/02".to_owned()],
+            ),
+            CatalogFile::new(
+                "raw_5M/2009/03/data.parquet",
+                398600815,
+                vec!["2009/03".to_owned()],
+            ),
+            CatalogFile::new(
+                "raw_5M/2009/04/data.parquet",
+                396353841,
+                vec!["2009/04".to_owned()],
+            ),
+            CatalogFile::new(
+                "raw_5M/2009/05/data.parquet",
+                410283205,
+                vec!["2009/05".to_owned()],
+            ),
         ],
-    )
-}
-
-/// A single file of the nyc taxi parquet data hosted by Ursa Labs
-/// Note that some nyc parquet files hosted by Ursa Labs have many small row groups which is inefficient
-pub fn nyc_taxi_ursa_small() -> CatalogTable {
-    StaticCatalogTable::new(
-        nyc_taxi_v1_schema(TimeUnit::Nanosecond),
-        "us-east-2".to_owned(),
-        "ursa-labs-taxi-data".to_owned(),
-        vec![CatalogFile::new("2009/01/data.parquet", 461966527, &[])],
     )
 }
 
 /// A subset of the nyc taxi parquet files hosted by Ursa Labs
 /// Note that some nyc parquet files hosted by Ursa Labs have many small row groups which is inefficient
-pub fn nyc_taxi_ursa_large() -> CatalogTable {
+pub fn nyc_taxi_ursa() -> CatalogTable {
     StaticCatalogTable::new(
         nyc_taxi_v1_schema(TimeUnit::Nanosecond),
         "us-east-2".to_owned(),
         "ursa-labs-taxi-data".to_owned(),
+        vec!["month".to_owned()],
         vec![
-            CatalogFile::new("2009/01/data.parquet", 461966527, &[]),
-            CatalogFile::new("2009/02/data.parquet", 436405669, &[]),
-            CatalogFile::new("2009/03/data.parquet", 474795751, &[]),
-            CatalogFile::new("2009/04/data.parquet", 470914229, &[]),
-            CatalogFile::new("2009/05/data.parquet", 489248585, &[]),
-            CatalogFile::new("2009/06/data.parquet", 465578495, &[]),
-            CatalogFile::new("2009/07/data.parquet", 448227037, &[]),
-            CatalogFile::new("2009/08/data.parquet", 450774566, &[]),
-            CatalogFile::new("2009/09/data.parquet", 460835784, &[]),
-            CatalogFile::new("2009/10/data.parquet", 517609313, &[]),
-            CatalogFile::new("2009/11/data.parquet", 471148697, &[]),
-            CatalogFile::new("2009/12/data.parquet", 479899902, &[]),
+            CatalogFile::new(
+                "2009/01/data.parquet",
+                461966527,
+                vec!["2009/01".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/02/data.parquet",
+                436405669,
+                vec!["2009/02".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/03/data.parquet",
+                474795751,
+                vec!["2009/03".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/04/data.parquet",
+                470914229,
+                vec!["2009/04".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/05/data.parquet",
+                489248585,
+                vec!["2009/05".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/06/data.parquet",
+                465578495,
+                vec!["2009/06".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/07/data.parquet",
+                448227037,
+                vec!["2009/07".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/08/data.parquet",
+                450774566,
+                vec!["2009/08".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/09/data.parquet",
+                460835784,
+                vec!["2009/09".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/10/data.parquet",
+                517609313,
+                vec!["2009/10".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/11/data.parquet",
+                471148697,
+                vec!["2009/11".to_owned()],
+            ),
+            CatalogFile::new(
+                "2009/12/data.parquet",
+                479899902,
+                vec!["2009/12".to_owned()],
+            ),
         ],
     )
 }

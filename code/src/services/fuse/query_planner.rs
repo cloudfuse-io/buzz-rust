@@ -4,6 +4,7 @@ use crate::datasource::{CatalogTable, HCombTable};
 use crate::error::Result;
 use crate::models::query::{BuzzStep, BuzzStepType};
 use crate::not_impl_err;
+use crate::plan_utils;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::{Expr, LogicalPlan};
 use futures::future::{BoxFuture, FutureExt};
@@ -23,6 +24,7 @@ pub struct ZonePlan {
 pub struct DistributedPlan {
     /// One hcomb/hbee combination of plan for each zone.
     pub zones: Vec<ZonePlan>,
+    pub nb_hbee: usize,
 }
 
 impl QueryPlanner {
@@ -50,18 +52,21 @@ impl QueryPlanner {
             "You must have one exactly one HBee step followed by one HComb step for now"
         );
 
-        println!("parsing");
         let bee_df = self.execution_context.sql(&query_steps[0].sql)?;
-        println!("optimizing");
         let src_bee_plan = self.execution_context.optimize(&bee_df.to_logical_plan())?;
-        println!("getting schema");
         let bee_output_schema = src_bee_plan.schema().as_ref().clone();
-        println!("split");
         let bee_plans = self.split(&src_bee_plan, vec![]).await?.0;
+        let nb_hbee = bee_plans.len();
+
+        if nb_hbee == 0 {
+            return Ok(DistributedPlan {
+                zones: vec![],
+                nb_hbee,
+            });
+        }
 
         // register a handle to the intermediate table on the context
-        let result_table =
-            HCombTable::new(query_id, bee_plans.len(), bee_output_schema.into());
+        let result_table = HCombTable::new(query_id, nb_hbee, bee_output_schema.into());
         self.execution_context
             .register_table(&query_steps[0].name, Box::new(result_table));
 
@@ -72,7 +77,7 @@ impl QueryPlanner {
         // TODO check that the source is a valid hcomb provider
 
         // If they are less hbees than hcombs, don't use all hcombs
-        let used_hcomb = std::cmp::min(nb_hcomb as usize, bee_plans.len());
+        let used_hcomb = std::cmp::min(nb_hcomb as usize, nb_hbee);
 
         // init plans for each zone
         let mut zones = (0..used_hcomb)
@@ -87,7 +92,10 @@ impl QueryPlanner {
             .enumerate()
             .for_each(|(i, bee_plan)| zones[i % used_hcomb].hbee.push(bee_plan));
 
-        Ok(DistributedPlan { zones: zones })
+        Ok(DistributedPlan {
+            zones: zones,
+            nb_hbee,
+        })
     }
 
     /// Takes a plan and if the source is a catalog, it distibutes the files accordingly
@@ -97,7 +105,7 @@ impl QueryPlanner {
     fn split<'a>(
         &'a mut self,
         plan: &'a LogicalPlan,
-        upper_lvl_exprs: Vec<Expr>,
+        upper_lvl_filters: Vec<Expr>,
     ) -> BoxFuture<'a, Result<(Vec<LogicalPlan>, Vec<Expr>)>> {
         async move {
             let new_inputs = datafusion::optimizer::utils::inputs(&plan);
@@ -106,24 +114,44 @@ impl QueryPlanner {
                     "Operations with more than one inputs are not supported",
                 ))
             } else if new_inputs.len() == 1 {
-                let exprs = datafusion::optimizer::utils::expressions(&plan);
-                let (inputs, exprs) = self.split(new_inputs[0], exprs).await?;
+                let mut is_filter = false;
+                let mut filter_exprs = vec![];
+                if let LogicalPlan::Filter { predicate, .. } = &plan {
+                    is_filter = true;
+                    plan_utils::split_expr(predicate, &mut filter_exprs);
+                }
+                let (inputs, remaining_filter_exprs) = self
+                    .split(new_inputs[0], filter_exprs.into_iter().cloned().collect())
+                    .await?;
                 let splitted_plans = inputs
                     .into_iter()
                     .map(|lp| -> Result<LogicalPlan> {
-                        Ok(datafusion::optimizer::utils::from_plan(
-                            plan,
-                            &exprs,
-                            &vec![lp],
-                        )?)
+                        // if all filters where managed at the partition level, prune the filter stage
+                        if is_filter && remaining_filter_exprs.len() == 0 {
+                            Ok(lp)
+                        } else if is_filter {
+                            Ok(datafusion::optimizer::utils::from_plan(
+                                plan,
+                                &vec![plan_utils::merge_expr(&remaining_filter_exprs)],
+                                &vec![lp],
+                            )?)
+                        } else {
+                            let exprs = datafusion::optimizer::utils::expressions(plan);
+                            Ok(datafusion::optimizer::utils::from_plan(
+                                plan,
+                                &exprs,
+                                &vec![lp],
+                            )?)
+                        }
                     })
                     .collect::<Result<Vec<_>>>()?;
-                Ok((splitted_plans, upper_lvl_exprs))
+                Ok((splitted_plans, upper_lvl_filters))
             } else if let Some(catalog_table) = Self::as_catalog(&plan) {
                 let (regular_exprs, partition_exprs) =
-                    catalog_table.extract_partition_exprs(upper_lvl_exprs)?;
+                    catalog_table.extract_partition_exprs(upper_lvl_filters)?;
                 let splitted_plans = catalog_table
                     .split(&partition_exprs)
+                    .await
                     .into_iter()
                     .map(|item| {
                         Ok(self
@@ -134,7 +162,7 @@ impl QueryPlanner {
                     .collect::<Result<Vec<LogicalPlan>>>()?;
                 Ok((splitted_plans, regular_exprs))
             } else {
-                Ok((vec![plan.clone()], upper_lvl_exprs))
+                Ok((vec![plan.clone()], upper_lvl_filters))
             }
         }
         .boxed() // recursion in an `async fn` requires boxing
@@ -154,9 +182,11 @@ mod tests {
     use super::*;
     use crate::datasource::{CatalogTable, HBeeTable, S3ParquetTable, SplittableTable};
     use crate::models::SizedFile;
-    use arrow::datatypes::{Schema, SchemaRef};
-    use datafusion::datasource::datasource::Statistics;
-    use datafusion::scalar::ScalarValue;
+    use arrow::array::*;
+    use arrow::datatypes::DataType;
+    use arrow::datatypes::{Field, Schema, SchemaRef};
+    use arrow::record_batch::RecordBatch;
+    use datafusion::datasource::{MemTable, TableProvider};
 
     #[tokio::test]
     async fn test_simple_query() {
@@ -166,7 +196,6 @@ mod tests {
             "test",
             CatalogTable::new(Box::new(MockSplittableTable {
                 nb_split,
-                expected_exprs: vec![],
                 partition_cols: vec![],
             })),
         );
@@ -187,7 +216,7 @@ mod tests {
         let plan_res = planner.plan("mock_query_id".to_owned(), steps, 1).await;
         let plan = plan_res.expect("The planner failed on a simple query");
         assert_eq!(plan.zones.len(), 1);
-        assert_eq!(plan.zones[0].hbee.len(), 5);
+        assert_eq!(plan.zones[0].hbee.len(), nb_split);
     }
 
     #[tokio::test]
@@ -217,21 +246,18 @@ mod tests {
     async fn test_query_with_condition() {
         let mut planner = QueryPlanner::new();
         let nb_split = 5;
-        let expected_exprs = vec![Expr::Column("partitions".to_owned()).eq(
-            Expr::Literal(ScalarValue::Utf8(Some("2021-01-01".to_owned()))),
-        )];
         planner.add_catalog(
             "test",
             CatalogTable::new(Box::new(MockSplittableTable {
                 nb_split,
-                expected_exprs,
-                partition_cols: vec!["partitions".to_owned()],
+                partition_cols: vec!["date".to_owned()],
             })),
         );
 
         let steps = vec![
             BuzzStep {
-                sql: "SELECT * FROM test WHERE partition='2021-01-01'".to_owned(),
+                sql: "SELECT * FROM test WHERE date>='2021-01-01' AND date<='2021-01-03'"
+                    .to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
             },
@@ -245,7 +271,73 @@ mod tests {
         let plan_res = planner.plan("mock_query_id".to_owned(), steps, 1).await;
         let plan = plan_res.expect("The planner failed on a query with condition");
         assert_eq!(plan.zones.len(), 1);
-        assert_eq!(plan.zones[0].hbee.len(), 5);
+        assert_eq!(plan.zones[0].hbee.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_query_with_empty_catalog() {
+        let mut planner = QueryPlanner::new();
+        let nb_split = 5;
+        planner.add_catalog(
+            "test",
+            CatalogTable::new(Box::new(MockSplittableTable {
+                nb_split,
+                partition_cols: vec!["date".to_owned()],
+            })),
+        );
+
+        let steps = vec![
+            BuzzStep {
+                sql: "SELECT * FROM test WHERE date='I am not even a date, dude!'"
+                    .to_owned(),
+                name: "mapper".to_owned(),
+                step_type: BuzzStepType::HBee,
+            },
+            BuzzStep {
+                sql: "SELECT * FROM mapper".to_owned(),
+                name: "reducer".to_owned(),
+                step_type: BuzzStepType::HComb,
+            },
+        ];
+
+        let plan_res = planner.plan("mock_query_id".to_owned(), steps, 1).await;
+        let plan =
+            plan_res.expect("The planner failed on a query with no data in catalog");
+        assert_eq!(plan.zones.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_query_with_grouping() {
+        let mut planner = QueryPlanner::new();
+        let nb_split = 5;
+        planner.add_catalog(
+            "test",
+            CatalogTable::new(Box::new(MockSplittableTable {
+                nb_split,
+                partition_cols: vec!["date".to_owned()],
+            })),
+        );
+
+        let steps = vec![
+            BuzzStep {
+                sql:
+                    "SELECT data_col, count(data_col) as cnt FROM test GROUP BY data_col"
+                        .to_owned(),
+                name: "mapper".to_owned(),
+                step_type: BuzzStepType::HBee,
+            },
+            BuzzStep {
+                sql: "SELECT data_col, count(cnt) FROM mapper GROUP BY data_col"
+                    .to_owned(),
+                name: "reducer".to_owned(),
+                step_type: BuzzStepType::HComb,
+            },
+        ];
+
+        let plan_res = planner.plan("mock_query_id".to_owned(), steps, 1).await;
+        let plan = plan_res.expect("The planner failed on a query with condition");
+        assert_eq!(plan.zones.len(), 1);
+        assert_eq!(plan.zones[0].hbee.len(), nb_split);
     }
 
     //// Test Fixtures: ////
@@ -254,23 +346,26 @@ mod tests {
     /// `expected_exprs` is asserted to be present in `split(&[Expr])`
     struct MockSplittableTable {
         nb_split: usize,
-        expected_exprs: Vec<Expr>,
         partition_cols: Vec<String>,
     }
 
+    /// `pattern_vec(pattern, len)` creates a vector of String of length `len`
+    macro_rules! pattern_vec {
+        ($x:expr, $y:expr) => {
+            (0..$y).map(|i| format!($x, i)).collect()
+        };
+    }
+
     impl SplittableTable for MockSplittableTable {
-        fn split(&self, filters: &[Expr]) -> Vec<HBeeTable> {
-            assert_eq!(filters, &self.expected_exprs);
-            (0..self.nb_split)
-                .map(|i| {
+        fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTable> {
+            files
+                .into_iter()
+                .map(|file| {
                     S3ParquetTable::new(
                         "north-pole-1".to_owned(),
                         "santas-bucket".to_owned(),
-                        vec![SizedFile {
-                            key: format!("gift_{}", i),
-                            length: 999999999,
-                        }],
-                        Arc::new(Schema::empty()),
+                        vec![file],
+                        test_schema(),
                     )
                 })
                 .collect::<Vec<_>>()
@@ -279,10 +374,47 @@ mod tests {
             &self.partition_cols
         }
         fn schema(&self) -> SchemaRef {
-            Arc::new(Schema::empty())
+            test_schema()
         }
-        fn statistics(&self) -> Statistics {
-            Statistics::default()
+        fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
+            let file_table_schema = Arc::new(Schema::new(vec![
+                Field::new("key", DataType::Utf8, false),
+                Field::new("length", DataType::UInt64, false),
+                Field::new("date", DataType::Utf8, false),
+            ]));
+
+            let keys = pattern_vec!("gift_{}", self.nb_split);
+            let lengths = vec![999999999 as u64; self.nb_split];
+            let parts = pattern_vec!("2021-01-{:02}", self.nb_split);
+
+            let batches = RecordBatch::try_new(
+                Arc::clone(&file_table_schema),
+                vec![
+                    Arc::new(StringArray::from(refvec(&keys))) as ArrayRef,
+                    Arc::new(UInt64Array::from(lengths)) as ArrayRef,
+                    Arc::new(StringArray::from(refvec(&parts))) as ArrayRef,
+                ],
+            )
+            .expect("Invalid test data");
+
+            Arc::new(
+                MemTable::try_new(file_table_schema, vec![vec![batches]])
+                    .expect("invalid test table"),
+            )
         }
+    }
+
+    fn test_schema() -> SchemaRef {
+        Arc::new(Schema::new(vec![Field::new(
+            "data_col",
+            DataType::Int64,
+            true,
+        )]))
+    }
+
+    fn refvec(vec: &Vec<String>) -> Vec<Option<&str>> {
+        vec.iter()
+            .map(|item| Some(item.as_ref()))
+            .collect::<Vec<_>>()
     }
 }

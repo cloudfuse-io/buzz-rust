@@ -5,6 +5,7 @@ pub mod example_catalog;
 pub mod execution_plan;
 pub mod flight_utils;
 pub mod models;
+pub mod plan_utils;
 pub mod serde;
 pub mod services;
 

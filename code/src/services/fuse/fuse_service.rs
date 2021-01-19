@@ -76,7 +76,7 @@ impl FuseService {
         // when hcombs are ready, start hbees!
         // TODO start sending to combs as soon as they are ready
         // TODO alternate between combs?
-        println!("[fuse] schedule hbees");
+        println!("[fuse] schedule {} hbees", plan.nb_hbee);
         let start_schedule = Instant::now();
         let future_hbees = (0..plan.zones.len())
             .flat_map(|i| (0..plan.zones[i].hbee.len()).map(move |j| (i, j)))

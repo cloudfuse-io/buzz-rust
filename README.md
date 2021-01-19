@@ -47,6 +47,7 @@ The code can be deployed to AWS through terraform:
 - you first need to init your terraform workspace. You will be prompted for:
   - the `STAGE` (dev/prod/...) so the associated terraform workspace can be created and the associated configs loaded.
   - the `BACKEND_PROFILE`
+- you also need to login docker to your ECR repository with `make docker-login`
 - you can then deploy the Buzz resources. You will be prompted for
   - the `STAGE`
   - the `DEPLOY_PROFILE` corresponding to the creds of the account where you want to deploy
@@ -90,4 +91,5 @@ Current limitations:
 - only single zone capacity is supported
 - only two-step queries are supported (`HBee` then `HComb`)
 - only single datasource queries can be run (no join)
+- only filter is supported on partitioning dimensions that are not present inside the parquet file
 - a Buzz stack can only read S3 in its own region (because of S3 Gateway Endpoint)

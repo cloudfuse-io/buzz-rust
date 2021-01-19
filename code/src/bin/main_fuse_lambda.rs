@@ -21,21 +21,11 @@ pub async fn start_fuse(event: Value) -> BuzzResult<()> {
         query_planner,
     );
 
-    service.add_catalog(
-        "nyc_taxi_ursa_small",
-        example_catalog::nyc_taxi_ursa_small(),
-    );
-    service.add_catalog(
-        "nyc_taxi_ursa_large",
-        example_catalog::nyc_taxi_ursa_large(),
-    );
+    service.add_catalog("nyc_taxi_ursa", example_catalog::nyc_taxi_ursa());
+    service.add_catalog("nyc_taxi_cloudfuse", example_catalog::nyc_taxi_cloudfuse());
     service.add_catalog(
         "nyc_taxi_cloudfuse_sample",
         example_catalog::nyc_taxi_cloudfuse_sample(),
-    );
-    service.add_catalog(
-        "nyc_taxi_cloudfuse_full",
-        example_catalog::nyc_taxi_cloudfuse_full(),
     );
 
     println!("[fuse] initialized, starting query...");

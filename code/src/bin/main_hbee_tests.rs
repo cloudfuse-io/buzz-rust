@@ -10,19 +10,15 @@ use serde_json::Value;
 const QUERY_ID: &str = "test_query";
 
 async fn new_plan(event: Value) -> Result<LogicalPlan, Box<dyn Error>> {
-    let mut query_planner = QueryPlanner::new();
-    query_planner.add_catalog("nyc_taxi_ursa", example_catalog::nyc_taxi_ursa_small());
-    query_planner.add_catalog(
+    let mut qp = QueryPlanner::new();
+    qp.add_catalog("nyc_taxi_ursa", example_catalog::nyc_taxi_ursa());
+    qp.add_catalog("nyc_taxi_cloudfuse", example_catalog::nyc_taxi_cloudfuse());
+    qp.add_catalog(
         "nyc_taxi_cloudfuse_sample",
         example_catalog::nyc_taxi_cloudfuse_sample(),
     );
-    query_planner.add_catalog(
-        "nyc_taxi_cloudfuse",
-        example_catalog::nyc_taxi_cloudfuse_full(),
-    );
     let steps = serde_json::from_value(event)?;
-    query_planner
-        .plan(QUERY_ID.to_owned(), steps, 1)
+    qp.plan(QUERY_ID.to_owned(), steps, 1)
         .await
         .map(|dist_plan| dist_plan.zones[0].hbee[0].clone())
         .map_err(|e| Box::new(e).into())
