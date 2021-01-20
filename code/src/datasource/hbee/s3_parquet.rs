@@ -2,7 +2,8 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use super::HBeeTable;
-use crate::clients::s3::S3FileAsync;
+use crate::clients::s3;
+use crate::clients::CachedFile;
 use crate::clients::RangeCache;
 use crate::execution_plan::ParquetExec;
 use crate::models::SizedFile;
@@ -82,12 +83,14 @@ impl TableProvider for S3ParquetTable {
             .files
             .iter()
             .map(|file| {
-                S3FileAsync::new(
-                    &self.region,
-                    &self.bucket,
-                    &file.key,
+                let (dler_id, dler_creator) = s3::downloader_creator(&self.region);
+                let file_id = s3::file_id(&self.bucket, &file.key);
+                CachedFile::new(
+                    file_id,
                     file.length,
                     Arc::clone(&cache),
+                    dler_id,
+                    dler_creator,
                 )
             })
             .collect::<Vec<_>>();

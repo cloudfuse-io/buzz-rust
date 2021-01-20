@@ -1,12 +1,9 @@
-use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::range_cache::{CachedRead, Downloader, RangeCache};
+use super::range_cache::Downloader;
 use crate::error::{BuzzError, Result};
 use async_trait::async_trait;
-use parquet::errors::{ParquetError, Result as ParquetResult};
-use parquet::file::reader::{ChunkReader, Length};
 use rusoto_core::Region;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3Client, S3};
 use tokio::io::AsyncReadExt;
@@ -56,76 +53,21 @@ impl Downloader for S3Downloader {
   }
 }
 
-//// File implementation that uses
+pub fn downloader_creator(
+  region: &str,
+) -> (String, Box<dyn Fn() -> Arc<dyn Downloader>>) {
+  let region_clone = region.to_owned();
+  let creator: Box<dyn Fn() -> Arc<dyn Downloader>> = Box::new(move || {
+    Arc::new(S3Downloader {
+      client: new_client(&region_clone),
+    })
+  });
 
-#[derive(Clone)]
-pub struct S3FileAsync {
-  region: String,
-  dler_id: String,
-  file_id: String,
-  length: u64,
-  cache: Arc<RangeCache>,
+  (format!("s3::{}", region), creator)
 }
 
-impl fmt::Debug for S3FileAsync {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct("S3FileAsync")
-      .field("downloader_id", &self.dler_id)
-      .field("file_id", &self.file_id)
-      .field("length", &self.length)
-      .finish()
-  }
-}
-
-impl S3FileAsync {
-  pub fn new(
-    region: &str,
-    bucket: &str,
-    key: &str,
-    length: u64,
-    cache: Arc<RangeCache>,
-  ) -> Self {
-    let dler_id = format!("s3::{}", region);
-    // if downloader not defined in range cache, add it
-    cache.register_downloader(&dler_id, || {
-      Arc::new(S3Downloader {
-        client: new_client(region),
-      })
-    });
-    S3FileAsync {
-      region: region.to_owned(),
-      dler_id,
-      file_id: format!("{}/{}", bucket, key),
-      length,
-      cache,
-    }
-  }
-
-  pub fn prefetch(&self, start: u64, length: usize) {
-    self
-      .cache
-      .schedule(self.dler_id.clone(), self.file_id.clone(), start, length);
-  }
-}
-
-impl Length for S3FileAsync {
-  fn len(&self) -> u64 {
-    self.length
-  }
-}
-
-impl ChunkReader for S3FileAsync {
-  type T = CachedRead;
-
-  fn get_read(&self, start: u64, length: usize) -> ParquetResult<Self::T> {
-    self
-      .cache
-      .get(self.dler_id.clone(), self.file_id.clone(), start, length)
-      .map_err(|e| match e {
-        BuzzError::ParquetError(err) => err,
-        err => ParquetError::General(format!("{}", err)),
-      })
-  }
+pub fn file_id(bucket: &str, key: &str) -> String {
+  format!("{}/{}", bucket, key)
 }
 
 //// S3 Client ////

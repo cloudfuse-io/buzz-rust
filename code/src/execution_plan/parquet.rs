@@ -5,23 +5,23 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{fmt, thread};
 
-use crate::clients::s3::S3FileAsync;
+use crate::clients::CachedFile;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
+use arrow_parquet::arrow::{ArrowReader, ParquetFileArrowReader};
+use arrow_parquet::file::reader::{FileReader, Length, SerializedFileReader};
 use async_trait::async_trait;
 use datafusion::error::{DataFusionError, Result as DataFusionResult};
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::physical_plan::Partitioning;
 use datafusion::physical_plan::{RecordBatchStream, SendableRecordBatchStream};
 use futures::stream::Stream;
-use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
-use parquet::file::reader::{FileReader, Length, SerializedFileReader};
 
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]
 pub struct ParquetExec {
-    files: Vec<S3FileAsync>,
+    files: Vec<CachedFile>,
     /// Schema before projection is applied
     file_schema: SchemaRef,
     /// Schema after projection is applied
@@ -35,7 +35,7 @@ pub struct ParquetExec {
 impl ParquetExec {
     /// Create a new Parquet reader execution plan
     pub fn new(
-        files: Vec<S3FileAsync>,
+        files: Vec<CachedFile>,
         projection: Option<Vec<usize>>,
         batch_size: usize,
         schema: SchemaRef,
@@ -76,9 +76,11 @@ impl ParquetExec {
 
             // TODO what about metadata ?
             if file_schema.fields() != arrow_reader.get_schema()?.fields() {
-                return Err(DataFusionError::Plan(
-                    "Expected and parsed schema fields are not equal".to_owned(),
-                ));
+                return Err(DataFusionError::Plan(format!(
+                    "Expected and parsed schema fields are not equal: {:?} != {:?}",
+                    file_schema.fields(),
+                    arrow_reader.get_schema()?.fields()
+                )));
             }
             // prefetch usefull byte ranges
             let metadata = file_reader.metadata();
@@ -99,7 +101,7 @@ impl ParquetExec {
     }
 
     // returns the start of the downloaded chunk
-    fn download_footer(file: S3FileAsync) -> u64 {
+    fn download_footer(file: CachedFile) -> u64 {
         let end_length = 1024 * 1024;
         let (end_start, end_length) = match file.len().checked_sub(end_length) {
             Some(val) => (val, end_length),
@@ -185,7 +187,7 @@ fn send_result(
 }
 
 fn read_file(
-    file: S3FileAsync,
+    file: CachedFile,
     projection: Vec<usize>,
     batch_size: usize,
     response_tx: SyncSender<Option<ArrowResult<RecordBatch>>>,
@@ -245,5 +247,127 @@ impl Stream for ParquetStream {
 impl RecordBatchStream for ParquetStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use std::fs;
+    use std::io::SeekFrom;
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::clients::Downloader;
+    use crate::clients::RangeCache;
+    use crate::error::Result as BuzzResult;
+    use arrow::array::*;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow_parquet::arrow::ArrowWriter;
+    use async_trait::async_trait;
+    use tokio::fs::File as TokioFile;
+    use tokio::io::AsyncReadExt;
+
+    #[tokio::test]
+    async fn test_small_parquet() {
+        let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int32, false)]));
+        let rec_batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from(vec![1, 2, 3]))],
+        )
+        .unwrap();
+
+        let filename = "test_small_parquet.parquet";
+        let results = write_and_exec(&rec_batch, filename).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(format!("{:?}", results[0]), format!("{:?}", rec_batch));
+    }
+
+    // Without the threaded_scheduler the async machine gets stuck because of blocking call
+    #[tokio::test(threaded_scheduler)]
+    async fn test_larger_parquet() {
+        let schema =
+            Arc::new(Schema::new(vec![Field::new("a", DataType::Float64, false)]));
+        let rec_batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Float64Array::from(
+                (0..200_000).map(|val| val as f64 * 0.1).collect::<Vec<_>>(),
+            ))],
+        )
+        .unwrap();
+
+        let filename = "test_larger_parquet.parquet";
+        let results = write_and_exec(&rec_batch, filename).await;
+        assert_eq!(
+            results.iter().map(|rb| rb.num_rows()).sum::<usize>(),
+            200_000
+        );
+    }
+
+    /// Write the given `rec_batch` as a parquet file then make it into an exec plan
+    async fn write_and_exec(rec_batch: &RecordBatch, filename: &str) -> Vec<RecordBatch> {
+        let (tmp_file, path) = get_temp_file(filename);
+
+        let mut writer =
+            ArrowWriter::try_new(tmp_file.try_clone().unwrap(), rec_batch.schema(), None)
+                .unwrap();
+        writer.write(&rec_batch).unwrap();
+        writer.close().unwrap();
+
+        let file = CachedFile::new(
+            path.into_os_string().into_string().unwrap(),
+            tmp_file.metadata().unwrap().len(),
+            Arc::new(RangeCache::new().await),
+            "file_downloader".to_owned(),
+            || Arc::new(FileDownloader {}),
+        );
+
+        let exec_plan = ParquetExec::new(vec![file], None, 2048, rec_batch.schema());
+
+        datafusion::physical_plan::collect(Arc::new(exec_plan))
+            .await
+            .unwrap()
+    }
+
+    /// A downloader that simply reads from file system (file_id is the file path)
+    #[derive(Clone)]
+    struct FileDownloader {}
+
+    #[async_trait]
+    impl Downloader for FileDownloader {
+        async fn download(
+            &self,
+            file_id: String,
+            start: u64,
+            length: usize,
+        ) -> BuzzResult<Vec<u8>> {
+            let mut result = vec![0; length];
+            let mut f = TokioFile::open(&file_id).await?;
+            f.seek(SeekFrom::Start(start)).await?;
+            f.read_exact(&mut result).await?;
+            Ok(result)
+        }
+    }
+
+    /// Returns file handle for a temp file in 'target' directory with an empty content
+    fn get_temp_file(file_name: &str) -> (fs::File, PathBuf) {
+        // build tmp path to a file in "target/debug/testdata"
+        let mut path_buf = env::current_dir().unwrap();
+        path_buf.push("target");
+        path_buf.push("debug");
+        path_buf.push("testdata");
+        fs::create_dir_all(&path_buf).unwrap();
+        path_buf.push(file_name);
+
+        // create empty file (truncate)
+        fs::File::create(path_buf.as_path()).unwrap();
+
+        // return file handle for both read and write
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path_buf.as_path());
+        assert!(file.is_ok());
+        (file.unwrap(), path_buf)
     }
 }

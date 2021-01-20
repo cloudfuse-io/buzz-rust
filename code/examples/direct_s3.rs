@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use buzz::clients::{s3::S3FileAsync, RangeCache};
-use parquet::file::reader::{FileReader, Length, SerializedFileReader};
+use arrow_parquet::file::reader::{FileReader, Length, SerializedFileReader};
+use buzz::clients::{s3, CachedFile, RangeCache};
 
 async fn async_main() {
     let cache = RangeCache::new().await;
-    // let file = S3FileAsync::new(
+    // let file = CachedFile::new(
     //     "us-east-2",
     //     "cloudfuse-taxi-data",
     //     // "raw_small/2009/01/data.parquet",
@@ -15,13 +15,11 @@ async fn async_main() {
     //     Arc::new(cache),
     // );
 
-    let file = S3FileAsync::new(
-        "us-east-2",
-        "ursa-labs-taxi-data",
-        "2009/01/data.parquet",
-        461966527,
-        Arc::new(cache),
-    );
+    let (dler_id, dler_creator) = s3::downloader_creator("us-east-2");
+    let file_id = s3::file_id("ursa-labs-taxi-data", "2009/01/data.parquet");
+
+    let file =
+        CachedFile::new(file_id, 461966527, Arc::new(cache), dler_id, dler_creator);
 
     // download footer
     let prefetch_size = 1024 * 1024;

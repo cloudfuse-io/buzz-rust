@@ -4,8 +4,8 @@ use std::io;
 use std::result;
 
 use arrow::error::ArrowError;
+use arrow_parquet::errors::ParquetError;
 use datafusion::error::DataFusionError;
-use parquet::errors::ParquetError;
 
 /// Result type for operations that could result in an [BuzzError]
 pub type Result<T> = result::Result<T, BuzzError>;

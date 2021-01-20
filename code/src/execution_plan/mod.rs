@@ -1,7 +1,7 @@
 //! Execution plans are implementations of DataFusion's ExecutionPlan trait
 
-mod s3_parquet;
+mod parquet;
 mod stream;
 
-pub use s3_parquet::ParquetExec;
+pub use parquet::ParquetExec;
 pub use stream::StreamExec;
