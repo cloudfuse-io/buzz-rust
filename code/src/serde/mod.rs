@@ -14,10 +14,10 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
     use datafusion::execution::context::ExecutionContext;
     use datafusion::logical_plan::LogicalPlan;
-    use datafusion::logical_plan::{col, count};
+    use datafusion::logical_plan::{col, count, lit};
 
     #[test]
-    fn roundtrip() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn roundtrip_basic() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let parquet_table = mock_table();
 
         let source_df = ExecutionContext::new().read_table(Arc::new(parquet_table))?;
@@ -43,6 +43,29 @@ mod tests {
         let source_df = ExecutionContext::new()
             .read_table(Arc::new(parquet_table))?
             .aggregate(vec![col("state")], vec![count(col("state"))])?;
+
+        let source_plan = source_df.to_logical_plan();
+
+        let proto: protobuf::LogicalPlanNode = (&source_plan).try_into()?;
+
+        let transfered_plan: LogicalPlan = (&proto).try_into()?;
+
+        assert_eq!(
+            format!("{:?}", source_plan),
+            format!("{:?}", transfered_plan)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn roundtrip_filter() -> Result<(), Box<dyn std::error::Error>> {
+        let parquet_table = mock_table();
+
+        let source_df = ExecutionContext::new()
+            .read_table(Arc::new(parquet_table))?
+            .filter(col("salary").gt_eq(lit(1000.)))?
+            .select(vec![col("name").alias("employee_name")])?;
 
         let source_plan = source_df.to_logical_plan();
 
