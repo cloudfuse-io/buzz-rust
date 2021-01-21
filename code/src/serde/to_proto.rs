@@ -117,6 +117,7 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 });
                 Ok(node)
             }
+            // TODO complete unimplemented logical plans
             _ => Err(not_impl_err!("logical plan to_proto {:?}", self)),
         }
     }
@@ -272,6 +273,7 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
                 }));
                 Ok(expr)
             }
+            // TODO complete unimplemented logical expressions
             _ => Err(not_impl_err!("logical expr to_proto {:?}", self)),
         }
     }

@@ -74,19 +74,23 @@ impl FuseService {
             .await?;
 
         // when hcombs are ready, start hbees!
-        // TODO start sending to combs as soon as they are ready
-        // TODO alternate between combs?
+        // TODO start hbees for hcombs that are ready before the others?
         println!("[fuse] schedule {} hbees", plan.nb_hbee);
         let start_schedule = Instant::now();
-        let future_hbees = (0..plan.zones.len())
+        let mut hcomb_hbee_idx_tuple = (0..plan.zones.len())
             .flat_map(|i| (0..plan.zones[i].hbee.len()).map(move |j| (i, j)))
-            .map(|(i, j)| {
-                self.hbee_scheduler.schedule(
-                    query_id.clone(),
-                    &addresses[i],
-                    plan.zones[i].hbee[j].clone(),
-                )
-            });
+            .collect::<Vec<_>>();
+
+        // sort by hbee index in order to alternate between hcombs
+        hcomb_hbee_idx_tuple.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        let future_hbees = hcomb_hbee_idx_tuple.into_iter().map(|(i, j)| {
+            self.hbee_scheduler.schedule(
+                query_id.clone(),
+                &addresses[i],
+                plan.zones[i].hbee[j].clone(),
+            )
+        });
         futures::stream::iter(future_hbees)
             .buffer_unordered(10)
             .try_collect::<Vec<_>>()

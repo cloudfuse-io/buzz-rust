@@ -20,8 +20,11 @@ pub fn find_table<'a, T: TableProvider + 'static>(
         if let Some(result_table) = as_table::<T>(&plan) {
             Ok(result_table)
         } else {
-            // TODO find a way to print T
-            Err(not_impl_err!("Expected root to be a T"))
+            Err(not_impl_err!(
+                "Expected root to be a {}, found {:?}",
+                std::any::type_name::<T>(),
+                plan
+            ))
         }
     }
 }

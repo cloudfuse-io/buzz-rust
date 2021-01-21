@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use crate::datasource::{CatalogTable, HCombTable};
-use crate::error::Result;
+use crate::error::{BuzzError, Result};
 use crate::models::query::{BuzzStep, BuzzStepType};
 use crate::not_impl_err;
 use crate::plan_utils;
+use crate::services::utils;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::{Expr, LogicalPlan};
 use futures::future::{BoxFuture, FutureExt};
@@ -14,6 +15,7 @@ pub struct QueryPlanner {
     execution_context: ExecutionContext,
 }
 
+#[derive(Debug)]
 pub struct ZonePlan {
     pub hbee: Vec<LogicalPlan>,
     pub hcomb: LogicalPlan,
@@ -21,6 +23,7 @@ pub struct ZonePlan {
 
 /// The plans to be distributed among hbees and hcombs
 /// To transfer them over the wire, these logical plans should be serializable
+#[derive(Debug)]
 pub struct DistributedPlan {
     /// One hcomb/hbee combination of plan for each zone.
     pub zones: Vec<ZonePlan>,
@@ -74,7 +77,12 @@ impl QueryPlanner {
         let hcomb_df = self.execution_context.sql(&query_steps[1].sql)?;
         let hcomb_plan = hcomb_df.to_logical_plan();
 
-        // TODO check that the source is a valid hcomb provider
+        utils::find_table::<HCombTable>(&hcomb_plan).map_err(|_| {
+            BuzzError::BadRequest(format!(
+                "The source table for the {} step is not an HBee",
+                query_steps[1].name,
+            ))
+        })?;
 
         // If they are less hbees than hcombs, don't use all hcombs
         let used_hcomb = std::cmp::min(nb_hcomb as usize, nb_hbee);
@@ -101,7 +109,6 @@ impl QueryPlanner {
     /// Takes a plan and if the source is a catalog, it distibutes the files accordingly
     /// Each resulting logical plan is a good workload for a given bee
     /// Only works with linear plans (only one datasource)
-    /// TODO could this be implem as an optim rule?
     fn split<'a>(
         &'a mut self,
         plan: &'a LogicalPlan,
@@ -324,5 +331,31 @@ mod tests {
         let plan = plan_res.expect("The planner failed on a query with condition");
         assert_eq!(plan.zones.len(), 1);
         assert_eq!(plan.zones[0].hbee.len(), nb_split);
+    }
+
+    #[tokio::test]
+    async fn test_bad_hcomb_table() {
+        let mut planner = QueryPlanner::new();
+        let nb_split = 5;
+        planner.add_catalog(
+            "test",
+            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 0))),
+        );
+
+        let steps = vec![
+            BuzzStep {
+                sql: "SELECT * FROM test".to_owned(),
+                name: "mapper".to_owned(),
+                step_type: BuzzStepType::HBee,
+            },
+            BuzzStep {
+                sql: "SELECT * FROM test".to_owned(),
+                name: "reducer".to_owned(),
+                step_type: BuzzStepType::HComb,
+            },
+        ];
+
+        let plan_res = planner.plan("mock_query_id".to_owned(), steps, 1).await;
+        plan_res.expect_err("The source table for the reducer step is not an HBee");
     }
 }

@@ -69,8 +69,6 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 .build()
                 .map_err(|e| e.into())
         } else if let Some(scan) = &self.scan {
-            // let mut provider: Arc<dyn TableProvider + Send + Sync>;
-            // let mut schema: Arc<Schema>;
             let provider: Arc<dyn TableProvider + Send + Sync> = match scan {
                 protobuf::logical_plan_node::Scan::S3Parquet(scan_node) => {
                     let schema = convert::schema_from_bytes(&scan_node.schema)?;
@@ -100,7 +98,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 }
             };
 
-            // TODO: projection and filters do not seem to be right
+            // projection and filters will be re-populated by new "optimize" step
             let projected_schema = provider.schema().to_dfschema_ref()?;
             Ok(LogicalPlan::TableScan {
                 table_name: "".to_string(),
@@ -110,6 +108,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                 filters: vec![],
             })
         } else {
+            // TODO complete unimplemented logical plans
             Err(internal_err!("Unsupported logical plan '{:?}'", self))
         }
     }
@@ -189,7 +188,6 @@ impl TryInto<Expr> for &protobuf::LogicalExprNode {
                     other
                 )),
             }?;
-            // TODO what about distinct ???
             Ok(Expr::AggregateFunction {
                 fun,
                 args: vec![parse_required_expr(&aggregate_expr.expr)?],
@@ -201,6 +199,7 @@ impl TryInto<Expr> for &protobuf::LogicalExprNode {
                 alias.alias.clone(),
             ))
         } else {
+            // TODO complete unimplemented logical expressions
             Err(internal_err!("Unsupported logical expression '{:?}'", self))
         }
     }
