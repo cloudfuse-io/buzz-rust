@@ -88,6 +88,7 @@ The `capacity.zone` field indicates the number of availability zones (and thus c
 
 Current limitations:
 - only SQL supported by [DataFusion](https://github.com/apache/arrow/tree/master/rust/datafusion) is supported by Buzz
+- from this, only a part is properly [serializable](code/src/serde)
 - only single zone capacity is supported
 - only two-step queries are supported (`HBee` then `HComb`)
 - only single datasource queries can be run (no join)
