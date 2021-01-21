@@ -60,7 +60,10 @@ impl ParquetExec {
     }
 
     /// Read the footer and schedule the downloads of all the required chunks
-    async fn init_file(&self, partition: usize) -> DataFusionResult<()> {
+    async fn init_file(
+        &self,
+        partition: usize,
+    ) -> DataFusionResult<Arc<SerializedFileReader<CachedFile>>> {
         let end_dl_chunk_start = Self::download_footer(self.files[partition].clone());
         let file_schema = self.file_schema.clone();
         let file = self.files[partition].clone();
@@ -74,7 +77,6 @@ impl ParquetExec {
             );
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader.clone());
 
-            // TODO what about metadata ?
             if file_schema.fields() != arrow_reader.get_schema()?.fields() {
                 return Err(DataFusionError::Plan(format!(
                     "Expected and parsed schema fields are not equal: {:?} != {:?}",
@@ -94,7 +96,7 @@ impl ParquetExec {
                     }
                 }
             }
-            Ok(())
+            Ok(file_reader)
         })
         .await
         .unwrap()
@@ -151,7 +153,7 @@ impl ExecutionPlan for ParquetExec {
         &self,
         partition: usize,
     ) -> DataFusionResult<SendableRecordBatchStream> {
-        self.init_file(partition).await?;
+        let parquet_reader = self.init_file(partition).await?;
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
@@ -159,12 +161,12 @@ impl ExecutionPlan for ParquetExec {
             Receiver<Option<ArrowResult<RecordBatch>>>,
         ) = sync_channel(2);
 
-        let file = self.files[partition].clone();
         let projection = self.projection.clone();
         let batch_size = self.batch_size;
 
         thread::spawn(move || {
-            if let Err(e) = read_file(file, projection, batch_size, response_tx) {
+            if let Err(e) = read_file(parquet_reader, projection, batch_size, response_tx)
+            {
                 println!("Parquet reader thread terminated due to error: {:?}", e);
             }
         });
@@ -187,17 +189,12 @@ fn send_result(
 }
 
 fn read_file(
-    file: CachedFile,
+    file_reader: Arc<SerializedFileReader<CachedFile>>,
     projection: Vec<usize>,
     batch_size: usize,
     response_tx: SyncSender<Option<ArrowResult<RecordBatch>>>,
 ) -> DataFusionResult<()> {
-    // TODO avoid footing being parsed twice here
-    let file_reader = Arc::new(
-        SerializedFileReader::new(file.clone())
-            .map_err(|e| DataFusionError::ParquetError(e))?,
-    );
-    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+    let mut arrow_reader = ParquetFileArrowReader::new(file_reader.clone());
     let mut batch_reader =
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
     loop {
@@ -209,8 +206,7 @@ fn read_file(
                 break;
             }
             Some(Err(e)) => {
-                let err_msg =
-                    format!("Error reading batch from {:?}: {}", file, e.to_string());
+                let err_msg = format!("Error reading batch from file: {}", e.to_string());
                 // send error to operator
                 send_result(
                     &response_tx,

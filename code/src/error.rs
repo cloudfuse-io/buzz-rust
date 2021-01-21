@@ -154,8 +154,6 @@ impl Display for BuzzError {
                 write!(f, "Execution error: {}", desc)
             }
             BuzzError::HBee(ref desc) => {
-                // TODO the actual error from the bee should be transfered instead
-                // e.g the Download error
                 write!(f, "HBee error: {}", desc)
             }
             BuzzError::Download(ref desc) => {

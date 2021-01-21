@@ -43,12 +43,10 @@ pub async fn batch_stream_to_flight(
     batches: SendableRecordBatchStream,
 ) -> Result<impl Stream<Item = Result<FlightData, Status>> + Send + Sync, Box<dyn Error>>
 {
-    // TODO are all this IpcWriteOptions creations a problem?
     let (sender, result) =
         tokio::sync::mpsc::unbounded_channel::<Result<FlightData, Status>>();
 
-    // create an initial FlightData message that sends schema
-    let options = IpcWriteOptions::default();
+    let options = Arc::new(IpcWriteOptions::default());
     let mut flight_schema = flight_data_from_arrow_schema(&batches.schema(), &options);
     flight_schema.flight_descriptor = cmd_to_descriptor(&cmd);
     sender.send(Ok(flight_schema))?;
@@ -59,7 +57,6 @@ pub async fn batch_stream_to_flight(
         // then stream the rest
         batches
             .for_each(|batch_res| async {
-                let options = IpcWriteOptions::default();
                 match batch_res {
                     Ok(batch) => {
                         flight_data_from_arrow_batch(&batch, &options)
