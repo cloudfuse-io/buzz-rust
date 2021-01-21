@@ -21,21 +21,21 @@ EOF
   tags = module.env.tags
 }
 
-resource "aws_iam_role_policy" "ecs_task_policy" {
-  name = "${module.env.tags["module"]}_${var.name}_${module.env.stage}_${var.region_name}"
-  role = aws_iam_role.ecs_task_role.id
+# resource "aws_iam_role_policy" "ecs_task_policy" {
+#   name = "${module.env.tags["module"]}_${var.name}_${module.env.stage}_${var.region_name}"
+#   role = aws_iam_role.ecs_task_role.id
 
-  policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": "*",
-            "Resource": "*"
-        }
-    ]
-}
-EOF
+#   policy = <<EOF
+# {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Effect": "Allow",
+#             "Action": "*",
+#             "Resource": "*"
+#         }
+#     ]
+# }
+# EOF
 
-}
+# }

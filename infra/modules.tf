@@ -101,12 +101,19 @@ resource "aws_iam_policy" "fargate-additional-policy" {
   "Statement": [
     {
       "Action": [
-        "ecs:RunTask",
-        "ecs:StartTask",
         "ecs:DescribeTasks",
         "ecs:ListTasks"
       ],
       "Resource": "*",
+      "Condition" : { "StringEquals" : { "ecs:cluster" : "${aws_ecs_cluster.hcomb_cluster.arn}" }},
+      "Effect": "Allow"
+    },
+    {
+      "Action": [
+        "ecs:RunTask",
+        "ecs:StartTask"
+      ],
+      "Resource": "${module.hcomb.task_definition_arn}",
       "Effect": "Allow"
     },
     {
@@ -133,7 +140,7 @@ resource "aws_iam_policy" "lambda-additional-policy" {
       "Action": [
         "lambda:InvokeFunction"
       ],
-      "Resource": "*",
+      "Resource": "${module.hbee.lambda_arn}",
       "Effect": "Allow"
     }
   ]

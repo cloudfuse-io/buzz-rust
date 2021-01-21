@@ -94,3 +94,5 @@ Current limitations:
 - only single datasource queries can be run (no join)
 - only filter is supported on partitioning dimensions that are not present inside the parquet file
 - a Buzz stack can only read S3 in its own region (because of S3 Gateway Endpoint)
+
+Note that the first query is slow (and might even timeout!) because it firsts needs to create a container for the HComb, which typically takes 15-25s on Fargate. Subsequent queries are much faster because they reuse the HComb. The HComb is stopped after a configurable duration of inactivity (typically 2 minutes).
