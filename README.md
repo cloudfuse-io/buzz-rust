@@ -2,7 +2,7 @@
 
 [![codecov](https://codecov.io/gh/cloudfuse-io/buzz-rust/branch/master/graph/badge.svg?token=I5IDAW6VS6)](https://codecov.io/gh/cloudfuse-io/buzz-rust)
 [![Build Status](https://travis-ci.com/cloudfuse-io/buzz-rust.svg?token=9RxDUsNXba9MDDdpBaZt&branch=master)](https://travis-ci.com/cloudfuse-io/buzz-rust)
-[![License](https://img.shields.io/github/license/cloudfuse-io/buzz-rust)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Welcome to the Rust implementation of Buzz. Buzz is a serverless query engine. The Rust implementation is based on Apache Arrow and the DataFusion engine.
 
