@@ -23,14 +23,6 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = [module.env.vpc_cidr]
   }
 
-
-  ingress {
-    protocol    = "tcp"
-    from_port   = 8080
-    to_port     = 8080
-    cidr_blocks = [var.local_ip]
-  }
-
   egress {
     protocol    = "-1"
     from_port   = 0

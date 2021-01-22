@@ -28,5 +28,3 @@ variable "ecs_task_execution_role_arn" {}
 variable "docker_image" {}
 
 variable "subnets" {}
-
-variable "local_ip" {}

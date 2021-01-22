@@ -45,7 +45,3 @@ module "env" {
   source = "./env"
 }
 
-data "http" "icanhazip" {
-  url = "http://icanhazip.com"
-}
-

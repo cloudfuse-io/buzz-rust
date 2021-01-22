@@ -78,7 +78,6 @@ module "hcomb" {
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution_role.arn
   docker_image                = "${aws_ecr_repository.hcomb_repo.repository_url}:${var.git_revision}"
   subnets                     = module.vpc.public_subnets
-  local_ip                    = "${chomp(data.http.icanhazip.body)}/32"
 
   environment = [{
     name  = "GIT_REVISION"
