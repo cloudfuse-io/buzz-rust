@@ -10,6 +10,7 @@ pub enum BuzzStepType {
 pub struct BuzzStep {
     pub sql: String,
     pub name: String,
+    pub partition_filter: Option<String>,
     pub step_type: BuzzStepType,
 }
 

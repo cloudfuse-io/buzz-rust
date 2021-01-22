@@ -5,7 +5,7 @@ use crate::not_impl_err;
 use crate::plan_utils;
 use crate::services::utils;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{Expr, LogicalPlan};
+use datafusion::logical_plan::LogicalPlan;
 use futures::future::{BoxFuture, FutureExt};
 
 pub struct QueryPlanner {
@@ -74,7 +74,9 @@ impl QueryPlanner {
         let src_bee_plan = self.execution_context.optimize(&bee_df.to_logical_plan())?;
         let hbee_actual_src = utils::find_table_name::<CatalogTable>(&src_bee_plan)?;
         let bee_output_schema = src_bee_plan.schema().as_ref().clone();
-        let bee_plans = self.split(&src_bee_plan, vec![]).await?;
+        let bee_plans = self
+            .split(&src_bee_plan, &hbee_step.partition_filter)
+            .await?;
         let nb_hbee = bee_plans.len();
 
         if nb_hbee == 0 {
@@ -132,13 +134,13 @@ impl QueryPlanner {
         })
     }
 
-    /// Takes a plan and if the source is a catalog, it distibutes the files accordingly
-    /// Each resulting logical plan is a good workload for a given bee
+    /// Takes a plan and if the source is a catalog, distibutes the files accordingly
+    /// Each resulting HBee table is a good workload for a given hbee
     /// Only works with linear plans (only one datasource)
     fn split<'a>(
         &'a mut self,
         plan: &'a LogicalPlan,
-        upper_lvl_filters: Vec<Expr>,
+        partition_filters: &'a Option<String>,
     ) -> BoxFuture<'a, Result<Vec<HBeeTableDesc>>> {
         async move {
             let new_inputs = datafusion::optimizer::utils::inputs(&plan);
@@ -151,14 +153,10 @@ impl QueryPlanner {
                 if let LogicalPlan::Filter { predicate, .. } = &plan {
                     plan_utils::split_expr(predicate, &mut filter_exprs);
                 }
-                let table_descs = self
-                    .split(new_inputs[0], filter_exprs.into_iter().cloned().collect())
-                    .await?;
+                let table_descs = self.split(new_inputs[0], partition_filters).await?;
                 Ok(table_descs)
             } else if let Some(catalog_table) = Self::as_catalog(&plan) {
-                let partition_exprs =
-                    catalog_table.extract_partition_exprs(upper_lvl_filters)?;
-                let table_descs = catalog_table.split(&partition_exprs).await?;
+                let table_descs = catalog_table.split(partition_filters).await?;
                 Ok(table_descs)
             } else {
                 Err(not_impl_err!("Split only works with catalog tables",))
@@ -196,11 +194,13 @@ mod tests {
                 sql: "SELECT * FROM test".to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
+                partition_filter: None,
             },
             BuzzStep {
                 sql: "SELECT * FROM mapper".to_owned(),
                 name: "reducer".to_owned(),
                 step_type: BuzzStepType::HComb,
+                partition_filter: None,
             },
         ];
 
@@ -218,11 +218,13 @@ mod tests {
                 sql: "SELECT * FROM test".to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
+                partition_filter: None,
             },
             BuzzStep {
                 sql: "SELECT * FROM mapper".to_owned(),
                 name: "reducer".to_owned(),
                 step_type: BuzzStepType::HComb,
+                partition_filter: None,
             },
         ];
 
@@ -244,18 +246,19 @@ mod tests {
 
         let steps = vec![
             BuzzStep {
-                sql: "SELECT * FROM test WHERE 
-                part_key_2>='part_value_001' AND 
-                part_key_2<='part_value_003' AND
-                data_col=0"
-                    .to_owned(),
+                sql: "SELECT * FROM test WHERE data_col=0".to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
+                partition_filter: Some(
+                    "part_key_2>='part_value_001' AND part_key_2<='part_value_003'"
+                        .to_owned(),
+                ),
             },
             BuzzStep {
                 sql: "SELECT * FROM mapper".to_owned(),
                 name: "reducer".to_owned(),
                 step_type: BuzzStepType::HComb,
+                partition_filter: None,
             },
         ];
 
@@ -276,15 +279,16 @@ mod tests {
 
         let steps = vec![
             BuzzStep {
-                sql: "SELECT * FROM test WHERE part_key_1='not_in_partition_value'"
-                    .to_owned(),
+                sql: "SELECT * FROM test".to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
+                partition_filter: Some("part_key_1='not_in_partition_value'".to_owned()),
             },
             BuzzStep {
                 sql: "SELECT * FROM mapper".to_owned(),
                 name: "reducer".to_owned(),
                 step_type: BuzzStepType::HComb,
+                partition_filter: None,
             },
         ];
 
@@ -310,12 +314,14 @@ mod tests {
                         .to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
+                partition_filter: None,
             },
             BuzzStep {
                 sql: "SELECT data_col, count(cnt) FROM mapper GROUP BY data_col"
                     .to_owned(),
                 name: "reducer".to_owned(),
                 step_type: BuzzStepType::HComb,
+                partition_filter: None,
             },
         ];
 
@@ -339,11 +345,13 @@ mod tests {
                 sql: "SELECT * FROM test".to_owned(),
                 name: "mapper".to_owned(),
                 step_type: BuzzStepType::HBee,
+                partition_filter: None,
             },
             BuzzStep {
                 sql: "SELECT * FROM test".to_owned(),
                 name: "reducer".to_owned(),
                 step_type: BuzzStepType::HComb,
+                partition_filter: None,
             },
         ];
 

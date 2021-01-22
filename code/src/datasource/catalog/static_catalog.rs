@@ -53,7 +53,7 @@ impl StaticCatalogTable {
         }))
     }
 
-    fn to_table(&self) -> Result<Arc<dyn TableProvider + Send + Sync>> {
+    fn to_table(&self) -> Result<Box<dyn TableProvider + Send + Sync>> {
         let mut key_builder = StringBuilder::new(self.files.len());
         let mut length_builder = UInt64Builder::new(self.files.len());
         let mut partition_builders = self
@@ -90,7 +90,7 @@ impl StaticCatalogTable {
         let schema = Arc::new(Schema::new(fields));
 
         let record_batch = RecordBatch::try_new(Arc::clone(&schema), col_arrays)?;
-        Ok(Arc::new(MemTable::try_new(
+        Ok(Box::new(MemTable::try_new(
             schema,
             vec![vec![record_batch]],
         )?))
@@ -117,7 +117,7 @@ impl SplittableTable for StaticCatalogTable {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
-    fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
+    fn file_table(&self) -> Box<dyn TableProvider + Send + Sync> {
         self.to_table().unwrap()
     }
 }

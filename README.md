@@ -10,19 +10,19 @@ Welcome to the Rust implementation of Buzz. Buzz is a serverless query engine. T
 
 Buzz is composed of three systems:
 - :honeybee: the HBees: cloud function workers that fetch data from the cloud storage and pre-aggregate it
-- :honey_pot: the HCombs: container based reducers that collect the aggregates from the hbees
-- :sparkler: the Fuse: a cloud function entrypoint that acts ase as scheduler and resource manager for a given query
+- :honey_pot: the HCombs: container based reducers that collect the intermediate state from the hbees and finialize the aggregation
+- :sparkler: the Fuse: a cloud function entrypoint that acts as scheduler and resource manager for a given query
 
 
 Note: the _h_ in hbee and hcomb stands for honey, of course ! :smiley:
 
 ## Tooling
 
-The Makefile contains all the usefull commands to build, deploy and test-run Buzz.
+The Makefile contains all the usefull commands to build, deploy and test-run Buzz, so you will likely need make to be installed.
 
-Because Buzz is a cloud native query engine, many commands require an AWS account to be run. The Makefile uses the credentials stored in your `~/.aws/credentials` file (cf. [doc](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)) to access to your cloud accounts on your behalf. 
+Because Buzz is a cloud native query engine, many commands require an AWS account to be run. The Makefile uses the credentials stored in your `~/.aws/credentials` file (cf. [doc](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)) to access your cloud accounts on your behalf. 
 
-When running commands from the Makefile, you will be prompted to specify the profiles (from the AWS creds file), region and stage you whish to use. If you don't want to specify these each time you run a command, you can specify defaults by creating a file named `default.env` at the root of the project with the following content:
+When running commands from the Makefile, you will be prompted to specify the profiles (from the AWS creds file), region and stage you whish to use. If you don't want to specify these each time you run a make command, you can specify defaults by creating a file named `default.env` at the root of the project with the following content:
 ```
 REGION:=eu-west-1|us-east-1|...
 DEPLOY_PROFILE:=profile-where-buzz-will-be-deployed
@@ -47,12 +47,12 @@ The code can be deployed to AWS through terraform:
 - you first need to init your terraform workspace. You will be prompted for:
   - the `STAGE` (dev/prod/...) so the associated terraform workspace can be created and the associated configs loaded.
   - the `BACKEND_PROFILE`
-- you also need to login docker to your ECR repository with `make docker-login`
+- you also need to login docker to your ECR repository with `make docker-login`. For this to work, you need the AWS cli v2+ to be installed.
 - you can then deploy the Buzz resources. You will be prompted for
   - the `STAGE`
   - the `DEPLOY_PROFILE` corresponding to the creds of the account where you want to deploy
   - the `BACKEND_PROFILE`
-- if you want to cleanup you AWS account, you can run the destroy command. Buzz is a serverless query engine, so should not consume many paying resources when it is not used, but there might be some residual costs (that we aim to reduce to 0) as long as the stack is kept in place.
+- if you want to cleanup you AWS account, you can run the destroy command. Buzz is a serverless query engine, so it should not consume many paying resources when it is not used. But there might be some residual costs (that we aim to reduce to 0) as long as the stack is kept in place.
 
 **Notes:**
 - remember that you can specify the `default.env` file to avoid being prompted at each command
@@ -61,14 +61,17 @@ The code can be deployed to AWS through terraform:
 
 ## Running queries
 
+To run queries using the Makefile, you need the AWS cli v2+ to be installed.
+
 Example query (cf. [`code/examples/query.json`](code/examples/query.json)):
 ```
 {
     "steps": [
         {
-            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi_ursa_large GROUP BY payment_type",
+            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi_ursa WHERE month<='2009/06' GROUP BY payment_type",
             "name": "nyc_taxi_map",
-            "step_type": "HBee"
+            "step_type": "HBee",
+            "partition_filter": "month<='2009/06'"
         },
         {
             "sql": "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type",
@@ -82,17 +85,17 @@ Example query (cf. [`code/examples/query.json`](code/examples/query.json)):
 }
 ```
 
-A query is a succession of steps. The `HBee` step type means that this part of the query runs in cloud functions (e.g AWS Lambda). The `HComb` step type means the associated query part runs on the container reducers (e.g AWS Fargate). The output of one step can be used as input (`FROM` statement) of the next step by refering to it by the step's name.
+A query is a succession of steps. The `HBee` step type means that this part of the query runs in cloud functions (e.g AWS Lambda). The `HComb` step type means the associated query part runs on the container reducers (e.g AWS Fargate). The output of one step should be used as input (`FROM` statement) of the next step by refering to it by the step's name.
 
 The `capacity.zone` field indicates the number of availability zones (and thus containers) used for `HComb` steps. This can be used to improve reducing capability and minimize cross-AZ data exchanges (both slower and more expensive).
 
+In the `HBee` step, you can specify a `partition_filter` field with an SQL filtering expression on partitioning dimensions. Currently partition values can only be strings.
+
 Current limitations:
 - only SQL supported by [DataFusion](https://github.com/apache/arrow/tree/master/rust/datafusion) is supported by Buzz
-- from this, only a part is properly [serializable](code/src/serde)
 - only single zone capacity is supported
 - only two-step queries are supported (`HBee` then `HComb`)
 - only single datasource queries can be run (no join)
-- only filter is supported on partitioning dimensions that are not present inside the parquet file
 - a Buzz stack can only read S3 in its own region (because of S3 Gateway Endpoint)
 
 Note that the first query is slow (and might even timeout!) because it firsts needs to create a container for the HComb, which typically takes 15-25s on Fargate. Subsequent queries are much faster because they reuse the HComb. The HComb is stopped after a configurable duration of inactivity (typically 2 minutes).

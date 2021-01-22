@@ -7,9 +7,10 @@ const QUERY: &'static str = r#"
 {
     "steps": [
         {
-            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi WHERE month='2009/01' GROUP BY payment_type",
+            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi GROUP BY payment_type",
             "name": "nyc_taxi_map",
-            "step_type": "HBee"
+            "step_type": "HBee",
+            "partition_filter": "month='2009/01'"
         },
         {
             "sql": "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type",
