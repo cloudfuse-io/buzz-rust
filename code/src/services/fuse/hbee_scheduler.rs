@@ -1,9 +1,9 @@
 use crate::clients::lambda::LambdaInvokeClient;
+use crate::datasource::HBeeTableDesc;
 use crate::error::Result;
 use crate::internal_err;
-use crate::models::{HBeeEvent, HCombAddress, LogicalPlanBytes};
+use crate::models::{HBeeEvent, HBeePlanBytes, HCombAddress};
 use async_trait::async_trait;
-use datafusion::logical_plan::LogicalPlan;
 use hyper::{Body, Client, Request};
 
 #[async_trait]
@@ -12,7 +12,9 @@ pub trait HBeeScheduler {
         &self,
         query_id: String,
         address: &HCombAddress,
-        plan: LogicalPlan,
+        table: &HBeeTableDesc,
+        sql: String,
+        source: String,
     ) -> Result<()>;
 }
 
@@ -26,14 +28,16 @@ impl HBeeScheduler for TestHBeeScheduler {
         &self,
         query_id: String,
         address: &HCombAddress,
-        plan: LogicalPlan,
+        table: &HBeeTableDesc,
+        sql: String,
+        source: String,
     ) -> Result<()> {
         let client = Client::new();
 
         let req_body = serde_json::to_string(&HBeeEvent {
             query_id,
             hcomb_address: address.clone(),
-            plan: LogicalPlanBytes::try_new(&plan)?,
+            plan: HBeePlanBytes::try_new(&table, sql, source)?,
         })
         .map_err(|_| internal_err!("failed to serialize to json"))?;
 
@@ -70,12 +74,14 @@ impl HBeeScheduler for LambdaHBeeScheduler {
         &self,
         query_id: String,
         address: &HCombAddress,
-        plan: LogicalPlan,
+        table: &HBeeTableDesc,
+        sql: String,
+        source: String,
     ) -> Result<()> {
         let req_body = serde_json::to_vec(&HBeeEvent {
             query_id,
             hcomb_address: address.clone(),
-            plan: LogicalPlanBytes::try_new(&plan)?,
+            plan: HBeePlanBytes::try_new(&table, sql, source)?,
         })
         .map_err(|_| internal_err!("failed to serialize to json"))?;
 

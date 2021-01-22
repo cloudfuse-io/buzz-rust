@@ -65,8 +65,12 @@ impl FuseService {
         // connect to the hcombs to init the query and get result handle
         println!("[fuse] schedule hcombs");
         let future_hcombs = (0..plan.zones.len()).map(|i| {
-            self.hcomb_scheduler
-                .schedule(&addresses[i], plan.zones[i].hcomb.clone())
+            self.hcomb_scheduler.schedule(
+                &addresses[i],
+                &plan.zones[i].hcomb.table,
+                plan.zones[i].hcomb.sql.clone(),
+                plan.zones[i].hcomb.source.clone(),
+            )
         });
         let hcomb_streams = futures::stream::iter(future_hcombs)
             .buffer_unordered(10)
@@ -88,7 +92,9 @@ impl FuseService {
             self.hbee_scheduler.schedule(
                 query_id.clone(),
                 &addresses[i],
-                plan.zones[i].hbee[j].clone(),
+                &plan.zones[i].hbee[j].table,
+                plan.zones[i].hbee[j].sql.clone(),
+                plan.zones[i].hbee[j].source.clone(),
             )
         });
         futures::stream::iter(future_hbees)

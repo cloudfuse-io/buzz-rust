@@ -12,17 +12,33 @@ use datafusion::logical_plan::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use s3_parquet::S3ParquetTable;
 
-/// A table that can be distributed to hbees
 /// Implemented as an enum because serialization must be mapped for new implems
-pub enum HBeeTable {
+#[derive(Debug)]
+pub enum HBeeTableDesc {
     S3Parquet(S3ParquetTable),
 }
 
-impl HBeeTable {
-    pub fn set_cache(&self, cache: Arc<RangeCache>) {
+impl HBeeTableDesc {
+    pub fn schema(&self) -> SchemaRef {
         match self {
-            HBeeTable::S3Parquet(table) => table.set_cache(cache),
+            HBeeTableDesc::S3Parquet(table) => table.schema(),
         }
+    }
+}
+
+/// A table that can be distributed to hbees
+pub struct HBeeTable {
+    desc: Arc<HBeeTableDesc>,
+    cache: Arc<RangeCache>,
+}
+
+impl HBeeTable {
+    pub fn new(desc: Arc<HBeeTableDesc>, cache: Arc<RangeCache>) -> Self {
+        Self { desc, cache }
+    }
+
+    pub fn description(&self) -> Arc<HBeeTableDesc> {
+        Arc::clone(&self.desc)
     }
 }
 
@@ -32,9 +48,7 @@ impl TableProvider for HBeeTable {
     }
 
     fn schema(&self) -> SchemaRef {
-        match self {
-            HBeeTable::S3Parquet(table) => table.schema(),
-        }
+        self.desc.schema()
     }
 
     fn scan(
@@ -43,14 +57,14 @@ impl TableProvider for HBeeTable {
         batch_size: usize,
         filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        match self {
-            HBeeTable::S3Parquet(table) => table.scan(projection, batch_size, filters),
+        match self.desc.as_ref() {
+            HBeeTableDesc::S3Parquet(table) => {
+                table.scan(Arc::clone(&self.cache), projection, batch_size, filters)
+            }
         }
     }
 
     fn statistics(&self) -> Statistics {
-        match self {
-            HBeeTable::S3Parquet(table) => table.statistics(),
-        }
+        Statistics::default()
     }
 }

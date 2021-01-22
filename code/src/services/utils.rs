@@ -5,9 +5,9 @@ use datafusion::logical_plan::LogicalPlan;
 
 /// Search a TableProvider of the given type in the plan.
 /// Only works with linear plans (only one datasource).
-pub fn find_table<'a, T: TableProvider + 'static>(
+pub fn find_table_name<'a, T: TableProvider + 'static>(
     plan: &'a LogicalPlan,
-) -> Result<&'a T> {
+) -> Result<&'a str> {
     let new_inputs = datafusion::optimizer::utils::inputs(&plan);
     if new_inputs.len() > 1 {
         Err(not_impl_err!(
@@ -15,23 +15,30 @@ pub fn find_table<'a, T: TableProvider + 'static>(
         ))
     } else if new_inputs.len() == 1 {
         // recurse
-        find_table(new_inputs[0])
+        find_table_name::<T>(new_inputs[0])
     } else {
-        if let Some(result_table) = as_table::<T>(&plan) {
+        if let Some(result_table) = as_table_name::<T>(&plan) {
             Ok(result_table)
         } else {
             Err(not_impl_err!(
-                "Expected root to be a {}, found {:?}",
-                std::any::type_name::<T>(),
-                plan
+                "Expected root to be a {}",
+                std::any::type_name::<T>()
             ))
         }
     }
 }
 
-fn as_table<'a, T: TableProvider + 'static>(plan: &'a LogicalPlan) -> Option<&'a T> {
-    if let LogicalPlan::TableScan { source: table, .. } = plan {
-        table.as_any().downcast_ref::<T>()
+fn as_table_name<'a, T: TableProvider + 'static>(
+    plan: &'a LogicalPlan,
+) -> Option<&'a str> {
+    if let LogicalPlan::TableScan {
+        source, table_name, ..
+    } = plan
+    {
+        source
+            .as_any()
+            .downcast_ref::<T>()
+            .map(|_| table_name.as_ref())
     } else {
         None
     }
@@ -50,37 +57,42 @@ mod tests {
     use datafusion::scalar::ScalarValue;
 
     #[test]
-    fn search_table_linear_plan() -> Result<()> {
+    fn search_table_df_plan() -> Result<()> {
         let mut ctx = ExecutionContext::new();
         let empty_table = Arc::new(EmptyTable::new(Arc::new(Schema::empty())));
         let scalar_expr = Expr::Literal(ScalarValue::from(10));
 
         let source_df = ctx.read_table(empty_table.clone())?;
+        let log_plan = &source_df.to_logical_plan();
+        find_table_name::<EmptyTable>(log_plan)?;
 
         let filtered_df =
             source_df.filter(scalar_expr.clone().eq(scalar_expr.clone()))?;
+        let log_plan = &filtered_df.to_logical_plan();
+        find_table_name::<EmptyTable>(log_plan)?;
 
         let grouped_df = filtered_df
             .aggregate(vec![scalar_expr.clone()], vec![sum(scalar_expr.clone())])?;
-
-        // search and find
-        find_and_assert_eq(source_df, empty_table.clone());
-        find_and_assert_eq(filtered_df, empty_table.clone());
-        find_and_assert_eq(grouped_df.clone(), empty_table.clone());
+        let log_plan = &grouped_df.to_logical_plan();
+        find_table_name::<EmptyTable>(log_plan)?;
 
         // search but not found
-        assert!(find_table::<CatalogTable>(&grouped_df.to_logical_plan()).is_err());
+        find_table_name::<CatalogTable>(&grouped_df.to_logical_plan())
+            .expect_err("Catalog table should not have been found");
 
         Ok(())
     }
 
-    fn find_and_assert_eq(
-        df: Arc<dyn datafusion::dataframe::DataFrame>,
-        origin: Arc<EmptyTable>,
-    ) {
-        let log_plan = &df.to_logical_plan();
-        let found_tb = find_table::<EmptyTable>(log_plan);
-        assert!(found_tb.is_ok());
-        assert!(std::ptr::eq(found_tb.unwrap(), &*origin));
+    #[test]
+    fn search_table_sql_plan() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+        let empty_table = Box::new(EmptyTable::new(Arc::new(Schema::empty())));
+        ctx.register_table("test_tbl", empty_table);
+        let df = ctx.sql("SELECT * FROM test_tbl")?;
+        let log_plan = df.to_logical_plan();
+        let found_name = find_table_name::<EmptyTable>(&log_plan).unwrap();
+        assert_eq!(found_name, "test_tbl");
+
+        Ok(())
     }
 }

@@ -15,12 +15,18 @@ async fn exec(mut req: Request<Body>) -> Result<Response<Body>, DynError> {
         body.extend_from_slice(&chunk?);
     }
     let hbee_event: HBeeEvent = serde_json::from_slice(&body)?;
-    let parsed_plan = hbee_event.plan.parse()?;
+    let (hbee_table_desc, sql, source) = hbee_event.plan.parse()?;
     tokio::spawn(async {
         let collector = Box::new(HttpCollector {});
-        let hbee_service = HBeeService::new(collector).await;
+        let mut hbee_service = HBeeService::new(collector).await;
         let res = hbee_service
-            .execute_query(hbee_event.query_id, parsed_plan, hbee_event.hcomb_address)
+            .execute_query(
+                hbee_event.query_id,
+                hbee_table_desc,
+                sql,
+                source,
+                hbee_event.hcomb_address,
+            )
             .await;
         match res {
             Ok(_) => println!("[hbee] success"),

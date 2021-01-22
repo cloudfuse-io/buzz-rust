@@ -1,26 +1,23 @@
-use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use super::HBeeTable;
+use super::HBeeTableDesc;
 use crate::clients::s3;
 use crate::clients::CachedFile;
 use crate::clients::RangeCache;
 use crate::execution_plan::ParquetExec;
 use crate::models::SizedFile;
 use arrow::datatypes::*;
-use datafusion::datasource::datasource::Statistics;
-use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
 use datafusion::logical_plan::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 
 /// Table-based representation of a `ParquetFile` backed by S3.
+#[derive(Debug)]
 pub struct S3ParquetTable {
     region: String,
     bucket: String,
     files: Vec<SizedFile>,
     schema: SchemaRef,
-    cache: Mutex<Option<Arc<RangeCache>>>,
 }
 
 impl S3ParquetTable {
@@ -30,18 +27,13 @@ impl S3ParquetTable {
         bucket: String,
         files: Vec<SizedFile>,
         schema: SchemaRef,
-    ) -> HBeeTable {
-        HBeeTable::S3Parquet(Self {
+    ) -> HBeeTableDesc {
+        HBeeTableDesc::S3Parquet(Self {
             schema,
             region,
             bucket,
             files,
-            cache: Mutex::new(None),
         })
-    }
-
-    pub fn set_cache(&self, cache: Arc<RangeCache>) {
-        self.cache.lock().unwrap().replace(cache);
     }
 
     pub fn region(&self) -> &str {
@@ -55,30 +47,18 @@ impl S3ParquetTable {
     pub fn files(&self) -> &[SizedFile] {
         &self.files
     }
-}
 
-impl TableProvider for S3ParquetTable {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn schema(&self) -> SchemaRef {
+    pub fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
-    fn scan(
+    pub fn scan(
         &self,
+        cache: Arc<RangeCache>,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let cache_guard = self.cache.lock().unwrap();
-        let cache =
-            cache_guard
-                .as_ref()
-                .ok_or(datafusion::error::DataFusionError::Plan(
-                    "Download should be started before execution".to_owned(),
-                ))?;
         let s3_files = self
             .files
             .iter()
@@ -100,9 +80,5 @@ impl TableProvider for S3ParquetTable {
             batch_size,
             Arc::clone(&self.schema),
         )))
-    }
-
-    fn statistics(&self) -> Statistics {
-        Statistics::default()
     }
 }

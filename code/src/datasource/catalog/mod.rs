@@ -2,7 +2,7 @@ use std::any::Any;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::datasource::HBeeTable;
+use crate::datasource::HBeeTableDesc;
 use crate::error::{BuzzError, Result};
 use crate::models::SizedFile;
 use crate::plan_utils;
@@ -19,7 +19,7 @@ use datafusion::physical_plan::ExecutionPlan;
 /// A specific type of TableProvider that cannot be converted to a physical plan
 /// but can be splitted to be distributed to hbees
 pub trait SplittableTable {
-    fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTable>;
+    fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTableDesc>;
     /// Get the names of the partitioning columns, in order of evaluation.
     fn partition_columns(&self) -> &[String];
     fn schema(&self) -> SchemaRef;
@@ -41,17 +41,13 @@ impl CatalogTable {
 
     /// Explore the catalog with the given `partition_filter` and generate the tables
     /// To be processed by each hbee.
-    pub async fn split(&self, partition_filters: &[Expr]) -> Result<Vec<HBeeTable>> {
+    pub async fn split(&self, partition_filters: &[Expr]) -> Result<Vec<HBeeTableDesc>> {
         let files = self.filter_catalog(partition_filters).await?;
         Ok(self.source_table.split(files))
     }
 
     /// Split expressions to (regular_exprs, parition_exprs)
-    pub fn extract_partition_exprs(
-        &self,
-        exprs: Vec<Expr>,
-    ) -> Result<(Vec<Expr>, Vec<Expr>)> {
-        let mut regular_exprs = vec![];
+    pub fn extract_partition_exprs(&self, exprs: Vec<Expr>) -> Result<Vec<Expr>> {
         let mut partition_exprs = vec![];
         let partition_cols = self
             .source_table
@@ -63,7 +59,7 @@ impl CatalogTable {
             let mut cols_in_expr = HashSet::new();
             expr_to_column_names(&expr, &mut cols_in_expr)?;
             if cols_in_expr.is_disjoint(&partition_cols) {
-                regular_exprs.push(expr);
+                // nothing
             } else if partition_cols.is_superset(&cols_in_expr) {
                 partition_exprs.push(expr);
             } else {
@@ -72,7 +68,7 @@ impl CatalogTable {
                 ));
             }
         }
-        Ok((regular_exprs, partition_exprs))
+        Ok(partition_exprs)
     }
 
     /// Applies the given filters

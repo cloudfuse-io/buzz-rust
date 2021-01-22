@@ -1,15 +1,14 @@
-use std::convert::TryInto;
 use std::error::Error;
 use std::pin::Pin;
 
+use crate::datasource::HCombTableDesc;
 use crate::flight_utils;
 use crate::models::{actions, HCombAddress};
-use crate::protobuf::LogicalPlanNode;
+use crate::serde;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use arrow_flight::flight_service_client::FlightServiceClient;
 use arrow_flight::Ticket;
-use datafusion::logical_plan::LogicalPlan;
 use futures::Stream;
 use futures::StreamExt;
 use prost::Message;
@@ -17,12 +16,14 @@ use prost::Message;
 /// Calls the hcomb do_get endpoint, expecting the first message to be the schema
 pub async fn call_do_get(
     address: &HCombAddress,
-    plan: LogicalPlan,
+    hcomb_table: &HCombTableDesc,
+    sql: String,
+    source: String,
 ) -> Result<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>>>>, Box<dyn Error>> {
     // Create Flight client
     let mut client = FlightServiceClient::connect(address.clone()).await?;
 
-    let proto_plan: LogicalPlanNode = (&plan).try_into()?;
+    let proto_plan = serde::serialize_hcomb(hcomb_table, sql, source);
 
     let mut buf = vec![];
     proto_plan.encode(&mut buf)?;

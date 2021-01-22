@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::io::Cursor;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -7,14 +6,14 @@ use super::hcomb_service::HCombService;
 use crate::error::BuzzError;
 use crate::flight_utils;
 use crate::models::actions;
-use crate::protobuf::LogicalPlanNode;
+use crate::protobuf;
+use crate::serde;
 use arrow_flight::flight_service_server::FlightServiceServer;
 use arrow_flight::{
     flight_service_server::FlightService, Action, ActionType, Criteria, Empty,
     FlightData, FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse,
     PutResult, SchemaResult, Ticket,
 };
-use datafusion::logical_plan::LogicalPlan;
 use futures::Stream;
 use prost::Message;
 use tonic::transport::Server;
@@ -83,17 +82,18 @@ impl FlightService for FlightServiceImpl {
     ) -> Result<Response<Self::DoGetStream>, Status> {
         // parse request
         let ticket = request.into_inner().ticket;
-        let plan_node =
-            LogicalPlanNode::decode(&mut Cursor::new(ticket)).map_err(|_| {
+        let plan_node = protobuf::HCombScanNode::decode(&mut Cursor::new(ticket))
+            .map_err(|_| {
                 Status::invalid_argument("Plan could not be parsed from bytes")
             })?;
-        let plan: LogicalPlan = (&plan_node).try_into().map_err(|_| {
-            Status::invalid_argument("Plan could not be converted from proto")
-        })?;
+        let (provider, sql, source) =
+            serde::deserialize_hcomb(plan_node).map_err(|_| {
+                Status::invalid_argument("Plan could not be converted from proto")
+            })?;
         // execute query
         let results = self
             .hcomb_service
-            .execute_query(plan)
+            .execute_query(provider, sql, source)
             .await
             .map_err(|e| Status::internal(format!("Query failed: {}", e)))?;
         // serialize response

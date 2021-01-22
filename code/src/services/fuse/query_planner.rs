@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use crate::datasource::{CatalogTable, HCombTable};
+use crate::datasource::{CatalogTable, HBeeTableDesc, HCombTable, HCombTableDesc};
 use crate::error::{BuzzError, Result};
 use crate::models::query::{BuzzStep, BuzzStepType};
 use crate::not_impl_err;
@@ -16,9 +14,23 @@ pub struct QueryPlanner {
 }
 
 #[derive(Debug)]
+pub struct HBeePlan {
+    pub sql: String,
+    pub source: String,
+    pub table: HBeeTableDesc,
+}
+
+#[derive(Debug)]
+pub struct HCombPlan {
+    pub sql: String,
+    pub source: String,
+    pub table: HCombTableDesc,
+}
+
+#[derive(Debug)]
 pub struct ZonePlan {
-    pub hbee: Vec<LogicalPlan>,
-    pub hcomb: LogicalPlan,
+    pub hbee: Vec<HBeePlan>,
+    pub hcomb: HCombPlan,
 }
 
 /// The plans to be distributed among hbees and hcombs
@@ -55,10 +67,14 @@ impl QueryPlanner {
             "You must have one exactly one HBee step followed by one HComb step for now"
         );
 
-        let bee_df = self.execution_context.sql(&query_steps[0].sql)?;
+        let hbee_step = &query_steps[0];
+        let hcomb_step = &query_steps[1];
+
+        let bee_df = self.execution_context.sql(&hbee_step.sql)?;
         let src_bee_plan = self.execution_context.optimize(&bee_df.to_logical_plan())?;
+        let hbee_actual_src = utils::find_table_name::<CatalogTable>(&src_bee_plan)?;
         let bee_output_schema = src_bee_plan.schema().as_ref().clone();
-        let bee_plans = self.split(&src_bee_plan, vec![]).await?.0;
+        let bee_plans = self.split(&src_bee_plan, vec![]).await?;
         let nb_hbee = bee_plans.len();
 
         if nb_hbee == 0 {
@@ -69,20 +85,23 @@ impl QueryPlanner {
         }
 
         // register a handle to the intermediate table on the context
-        let result_table = HCombTable::new(query_id, nb_hbee, bee_output_schema.into());
+        let hcomb_table_desc =
+            HCombTableDesc::new(query_id, nb_hbee, bee_output_schema.into());
+        let hcomb_expected_src = &hbee_step.name;
+
+        // plan the hcomb part of the query, to check if it is valid
+        let hcomb_table = HCombTable::new_empty(hcomb_table_desc.clone());
         self.execution_context
-            .register_table(&query_steps[0].name, Box::new(result_table));
-
-        // run the hcomb part of the query
-        let hcomb_df = self.execution_context.sql(&query_steps[1].sql)?;
+            .register_table(hcomb_expected_src, Box::new(hcomb_table));
+        let hcomb_df = self.execution_context.sql(&hcomb_step.sql)?;
         let hcomb_plan = hcomb_df.to_logical_plan();
-
-        utils::find_table::<HCombTable>(&hcomb_plan).map_err(|_| {
-            BuzzError::BadRequest(format!(
+        let hcomb_actual_src = utils::find_table_name::<HCombTable>(&hcomb_plan)?;
+        if hcomb_actual_src != hcomb_expected_src {
+            return Err(BuzzError::BadRequest(format!(
                 "The source table for the {} step is not an HBee",
-                query_steps[1].name,
-            ))
-        })?;
+                hcomb_step.name,
+            )));
+        }
 
         // If they are less hbees than hcombs, don't use all hcombs
         let used_hcomb = std::cmp::min(nb_hcomb as usize, nb_hbee);
@@ -91,14 +110,21 @@ impl QueryPlanner {
         let mut zones = (0..used_hcomb)
             .map(|_i| ZonePlan {
                 hbee: vec![],
-                hcomb: hcomb_plan.clone(),
+                hcomb: HCombPlan {
+                    table: hcomb_table_desc.clone(),
+                    sql: query_steps[1].sql.clone(),
+                    source: hcomb_actual_src.to_owned(),
+                },
             })
             .collect::<Vec<_>>();
         // distribute hbee plans between zones
-        bee_plans
-            .into_iter()
-            .enumerate()
-            .for_each(|(i, bee_plan)| zones[i % used_hcomb].hbee.push(bee_plan));
+        bee_plans.into_iter().enumerate().for_each(|(i, bee_plan)| {
+            zones[i % used_hcomb].hbee.push(HBeePlan {
+                table: bee_plan,
+                sql: hbee_step.sql.clone(),
+                source: hbee_actual_src.to_owned(),
+            })
+        });
 
         Ok(DistributedPlan {
             zones: zones,
@@ -113,7 +139,7 @@ impl QueryPlanner {
         &'a mut self,
         plan: &'a LogicalPlan,
         upper_lvl_filters: Vec<Expr>,
-    ) -> BoxFuture<'a, Result<(Vec<LogicalPlan>, Vec<Expr>)>> {
+    ) -> BoxFuture<'a, Result<Vec<HBeeTableDesc>>> {
         async move {
             let new_inputs = datafusion::optimizer::utils::inputs(&plan);
             if new_inputs.len() > 1 {
@@ -121,55 +147,21 @@ impl QueryPlanner {
                     "Operations with more than one inputs are not supported",
                 ))
             } else if new_inputs.len() == 1 {
-                let mut is_filter = false;
                 let mut filter_exprs = vec![];
                 if let LogicalPlan::Filter { predicate, .. } = &plan {
-                    is_filter = true;
                     plan_utils::split_expr(predicate, &mut filter_exprs);
                 }
-                let (inputs, remaining_filter_exprs) = self
+                let table_descs = self
                     .split(new_inputs[0], filter_exprs.into_iter().cloned().collect())
                     .await?;
-                let splitted_plans = inputs
-                    .into_iter()
-                    .map(|lp| -> Result<LogicalPlan> {
-                        // if all filters where managed at the partition level, prune the filter stage
-                        if is_filter && remaining_filter_exprs.len() == 0 {
-                            Ok(lp)
-                        } else if is_filter {
-                            Ok(datafusion::optimizer::utils::from_plan(
-                                plan,
-                                &vec![plan_utils::merge_expr(&remaining_filter_exprs)],
-                                &vec![lp],
-                            )?)
-                        } else {
-                            let exprs = datafusion::optimizer::utils::expressions(plan);
-                            Ok(datafusion::optimizer::utils::from_plan(
-                                plan,
-                                &exprs,
-                                &vec![lp],
-                            )?)
-                        }
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                Ok((splitted_plans, upper_lvl_filters))
+                Ok(table_descs)
             } else if let Some(catalog_table) = Self::as_catalog(&plan) {
-                let (regular_exprs, partition_exprs) =
+                let partition_exprs =
                     catalog_table.extract_partition_exprs(upper_lvl_filters)?;
-                let splitted_plans = catalog_table
-                    .split(&partition_exprs)
-                    .await?
-                    .into_iter()
-                    .map(|item| {
-                        Ok(self
-                            .execution_context
-                            .read_table(Arc::new(item))?
-                            .to_logical_plan())
-                    })
-                    .collect::<Result<Vec<LogicalPlan>>>()?;
-                Ok((splitted_plans, regular_exprs))
+                let table_descs = catalog_table.split(&partition_exprs).await?;
+                Ok(table_descs)
             } else {
-                Ok((vec![plan.clone()], upper_lvl_filters))
+                Err(not_impl_err!("Split only works with catalog tables",))
             }
         }
         .boxed() // recursion in an `async fn` requires boxing

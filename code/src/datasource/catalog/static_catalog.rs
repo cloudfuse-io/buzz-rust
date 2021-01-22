@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::{CatalogTable, SplittableTable};
-use crate::datasource::{HBeeTable, S3ParquetTable};
+use crate::datasource::{HBeeTableDesc, S3ParquetTable};
 use crate::error::Result;
 use crate::models::SizedFile;
 use arrow::array::*;
@@ -98,7 +98,7 @@ impl StaticCatalogTable {
 }
 
 impl SplittableTable for StaticCatalogTable {
-    fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTable> {
+    fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTableDesc> {
         files
             .into_iter()
             .map(|file| {

@@ -1,19 +1,19 @@
-use std::convert::TryInto;
 use std::io::Cursor;
 
+use crate::datasource::HBeeTableDesc;
 use crate::error::Result;
 use crate::internal_err;
 use crate::models::HCombAddress;
-use crate::protobuf::LogicalPlanNode;
+use crate::protobuf;
+use crate::serde as proto_serde;
 use base64;
-use datafusion::logical_plan::LogicalPlan;
 use prost::Message;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 /// Binary Base64 encoded representation of a logical plan
-/// TODO find serialization with less copies
-pub struct LogicalPlanBytes {
+/// TODO serialize this as json instead of base64 proto
+pub struct HBeePlanBytes {
     #[serde(rename = "b")]
     bytes: String,
 }
@@ -25,13 +25,17 @@ pub struct HBeeEvent {
     #[serde(rename = "a")]
     pub hcomb_address: HCombAddress,
     #[serde(rename = "p")]
-    pub plan: LogicalPlanBytes,
+    pub plan: HBeePlanBytes,
 }
 
-impl LogicalPlanBytes {
+impl HBeePlanBytes {
     /// Serialize and encode the given logical plan
-    pub fn try_new(plan: &LogicalPlan) -> Result<Self> {
-        let proto_plan: LogicalPlanNode = plan.try_into()?;
+    pub fn try_new(
+        table_desc: &HBeeTableDesc,
+        sql: String,
+        source: String,
+    ) -> Result<Self> {
+        let proto_plan = proto_serde::serialize_hbee(table_desc, sql, source);
 
         let mut buf = vec![];
         proto_plan
@@ -43,11 +47,11 @@ impl LogicalPlanBytes {
         })
     }
 
-    pub fn parse(&self) -> Result<LogicalPlan> {
+    pub fn parse(&self) -> Result<(HBeeTableDesc, String, String)> {
         let buf = base64::decode(&self.bytes)
             .map_err(|_| internal_err!("Could convert parse Base64"))?;
-        let proto_plan = LogicalPlanNode::decode(&mut Cursor::new(buf))
+        let proto_plan = protobuf::HBeeScanNode::decode(&mut Cursor::new(buf))
             .map_err(|_| internal_err!("Could convert bytes to proto"))?;
-        (&proto_plan).try_into()
+        proto_serde::deserialize_hbee(proto_plan)
     }
 }

@@ -3,14 +3,12 @@ use std::time::Instant;
 
 use super::Collector;
 use crate::clients::RangeCache;
-use crate::datasource::HBeeTable;
+use crate::datasource::{HBeeTableDesc, HBeeTable};
 use crate::error::Result;
 use crate::internal_err;
 use crate::models::HCombAddress;
-use crate::services::utils;
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
-use datafusion::logical_plan::LogicalPlan;
 use datafusion::physical_plan::{merge::MergeExec, ExecutionPlan};
 
 pub struct HBeeService {
@@ -34,14 +32,16 @@ impl HBeeService {
 
 impl HBeeService {
     pub async fn execute_query(
-        &self,
+        &mut self,
         query_id: String,
-        plan: LogicalPlan,
+        table: HBeeTableDesc, 
+        sql: String,
+        source: String,
         address: HCombAddress,
     ) -> Result<()> {
         println!("[hbee] execute query");
         let start = Instant::now();
-        let query_res = self.query(plan).await;
+        let query_res = self.query(table, sql, source).await;
         let cache_stats = self.range_cache.statistics();
         println!("[hbee] query_duration={}, waiting_download_ms={}, downloaded_bytes={}, processed_bytes={}, download_count={}",
             start.elapsed().as_millis(), 
@@ -60,12 +60,18 @@ impl HBeeService {
     /// Collecting the results might increase latency and mem consumption but:
     /// - reduces connection duration from hbee to hcomb, thus decreasing load on hcomb
     /// - allows to collect exec errors at once, effectively choosing between do_put and FAIL action
-    async fn query(&self, plan: LogicalPlan) -> Result<Vec<RecordBatch>> {
+    async fn query(&mut self,table: HBeeTableDesc, sql: String, source: String) -> Result<Vec<RecordBatch>> {
         let start = Instant::now();
-        let plan = self.execution_context.optimize(&plan)?;
-        let hbee_table = utils::find_table::<HBeeTable>(&plan)?;
-        hbee_table.set_cache(Arc::clone(&self.range_cache));
-        let physical_plan = self.execution_context.create_physical_plan(&plan)?;
+        let provider = HBeeTable::new(Arc::new(table), Arc::clone(&self.range_cache));
+        self.execution_context
+            .register_table(&source, Box::new(provider));
+        let physical_plan;
+        {
+            let df = self.execution_context.sql(&sql)?;
+            let plan = df.to_logical_plan();
+            let plan = self.execution_context.optimize(&plan)?;
+            physical_plan = self.execution_context.create_physical_plan(&plan)?;
+        }
         println!(
             "[hbee] planning duration: {}, partitions: {}",
             start.elapsed().as_millis(),

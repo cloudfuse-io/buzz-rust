@@ -5,11 +5,11 @@ pub mod env;
 mod hbee_event;
 pub mod query;
 
-pub use hbee_event::{HBeeEvent, LogicalPlanBytes};
+pub use hbee_event::{HBeeEvent, HBeePlanBytes};
 
 pub type HCombAddress = String;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SizedFile {
     pub key: String,
     pub length: u64,

@@ -1,7 +1,7 @@
 //! Test Fixtures for Catalog Tables
 
 use super::*;
-use crate::datasource::{HBeeTable, S3ParquetTable, SplittableTable};
+use crate::datasource::{S3ParquetTable, SplittableTable};
 use crate::models::SizedFile;
 use arrow::datatypes::DataType;
 use arrow::datatypes::{Field, Schema, SchemaRef};
@@ -34,7 +34,7 @@ impl MockSplittableTable {
 }
 
 impl SplittableTable for MockSplittableTable {
-    fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTable> {
+    fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTableDesc> {
         files
             .into_iter()
             .map(|file| {

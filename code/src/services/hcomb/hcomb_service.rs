@@ -1,17 +1,15 @@
 use std::process::exit;
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use super::results_service::ResultsService;
-use crate::datasource::HCombTable;
+use crate::datasource::{HCombTable, HCombTableDesc};
 use crate::error::{BuzzError, Result};
 use crate::internal_err;
-use crate::services::utils;
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
-use datafusion::logical_plan::LogicalPlan;
 use datafusion::physical_plan::{
     merge::MergeExec, ExecutionPlan, SendableRecordBatchStream,
 };
@@ -19,7 +17,7 @@ use futures::{Stream, StreamExt};
 
 pub struct HCombService {
     results_service: Arc<ResultsService>,
-    execution_context: ExecutionContext,
+    execution_context: Mutex<ExecutionContext>,
     last_query: Arc<AtomicI64>, // timestamp of the last query in seconds
 }
 
@@ -49,7 +47,7 @@ impl HCombService {
         });
         Self {
             results_service: Arc::new(ResultsService::new()),
-            execution_context: ExecutionContext::with_config(config),
+            execution_context: Mutex::new(ExecutionContext::with_config(config)),
             last_query,
         }
     }
@@ -58,17 +56,26 @@ impl HCombService {
     /// Returns the query id and the result stream
     pub async fn execute_query(
         &self,
-        plan: LogicalPlan,
+        provider_desc: HCombTableDesc,
+        sql: String,
+        source: String,
     ) -> Result<(String, SendableRecordBatchStream)> {
         println!("[hcomb] execute query...");
         self.last_query
             .store(chrono::Utc::now().timestamp(), Ordering::Relaxed);
-        let result_table = utils::find_table::<HCombTable>(&plan)?;
+        let query_id = provider_desc.query_id().to_owned();
         let batch_stream = self
             .results_service
-            .new_query(result_table.query_id().to_owned(), result_table.nb_hbee());
-        result_table.set(Box::pin(batch_stream));
-        let physical_plan = self.execution_context.create_physical_plan(&plan).unwrap();
+            .new_query(query_id.clone(), provider_desc.nb_hbee());
+        let provider = HCombTable::new(provider_desc, Box::pin(batch_stream));
+        let physical_plan;
+        {
+            let mut exec_context_guard = self.execution_context.lock().unwrap();
+            exec_context_guard.register_table(&source, Box::new(provider));
+            let df = exec_context_guard.sql(&sql)?;
+            let plan = df.to_logical_plan();
+            physical_plan = exec_context_guard.create_physical_plan(&plan)?;
+        }
 
         // if necessary, merge the partitions
         let query_res = match physical_plan.output_partitioning().partition_count() {
@@ -81,7 +88,7 @@ impl HCombService {
                 physical_plan.execute(0).await.map_err(|e| e.into())
             }
         };
-        query_res.map(|res| (result_table.query_id().to_owned(), res))
+        query_res.map(|res| (query_id.clone(), res))
     }
 
     pub async fn add_results(
