@@ -13,6 +13,9 @@ Buzz is composed of three systems:
 - :honey_pot: the HCombs: container based reducers that collect the intermediate state from the hbees and finialize the aggregation
 - :sparkler: the Fuse: a cloud function entrypoint that acts as scheduler and resource manager for a given query
 
+![Design overview](https://raw.githubusercontent.com/wiki/cloudfuse-io/buzz-rust/resources/design-principle-cropped.png)
+
+The Buzz query is composed of different SQL statements for the different stages. This is different from most distributed engines that have a scheduler that takes care of splitting a unique SQL query into multiple stages to be executed on different executors. The reason is that in Buzz, our executors (HBees and HCombs) have very different behaviors and capabilities. This is unusual and designing a query planner that understands this is not obvious. We prefer leaving it to our dear users, who are notoriously known to be smart, to decide what part of the query should be executed where. Further down the road, we might come up with a scheduler that is able to figure this out automatically.
 
 Note: the _h_ in hbee and hcomb stands for honey, of course ! :smiley:
 
