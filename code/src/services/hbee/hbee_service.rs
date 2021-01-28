@@ -12,18 +12,18 @@ use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::physical_plan::{merge::MergeExec, ExecutionPlan};
 
 pub struct HBeeService {
-    execution_context: ExecutionContext,
+    execution_config: ExecutionConfig,
     range_cache: Arc<RangeCache>,
     collector: Box<dyn Collector>,
 }
 
 impl HBeeService {
     pub async fn new(collector: Box<dyn Collector>) -> Self {
-        let config = ExecutionConfig::new()
+        let execution_config = ExecutionConfig::new()
             .with_batch_size(2048)
             .with_concurrency(1);
         Self {
-            execution_context: ExecutionContext::with_config(config),
+            execution_config,
             range_cache: Arc::new(RangeCache::new().await),
             collector,
         }
@@ -32,7 +32,7 @@ impl HBeeService {
 
 impl HBeeService {
     pub async fn execute_query(
-        &mut self,
+        &self,
         query_id: String,
         table: HBeeTableDesc, 
         sql: String,
@@ -60,17 +60,18 @@ impl HBeeService {
     /// Collecting the results might increase latency and mem consumption but:
     /// - reduces connection duration from hbee to hcomb, thus decreasing load on hcomb
     /// - allows to collect exec errors at once, effectively choosing between do_put and FAIL action
-    async fn query(&mut self,table: HBeeTableDesc, sql: String, source: String) -> Result<Vec<RecordBatch>> {
+    async fn query(&self,table: HBeeTableDesc, sql: String, source: String) -> Result<Vec<RecordBatch>> {
+        let mut execution_context = ExecutionContext::with_config(self.execution_config.clone());
         let start = Instant::now();
         let provider = HBeeTable::new(Arc::new(table), Arc::clone(&self.range_cache));
-        self.execution_context
+        execution_context
             .register_table(&source, Box::new(provider));
         let physical_plan;
         {
-            let df = self.execution_context.sql(&sql)?;
+            let df = execution_context.sql(&sql)?;
             let plan = df.to_logical_plan();
-            let plan = self.execution_context.optimize(&plan)?;
-            physical_plan = self.execution_context.create_physical_plan(&plan)?;
+            let plan = execution_context.optimize(&plan)?;
+            physical_plan = execution_context.create_physical_plan(&plan)?;
         }
         println!(
             "[hbee] planning duration: {}, partitions: {}",

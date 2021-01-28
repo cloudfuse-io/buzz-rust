@@ -1,6 +1,6 @@
 use std::process::exit;
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use super::results_service::ResultsService;
@@ -17,7 +17,7 @@ use futures::{Stream, StreamExt};
 
 pub struct HCombService {
     results_service: Arc<ResultsService>,
-    execution_context: Mutex<ExecutionContext>,
+    execution_config: ExecutionConfig,
     last_query: Arc<AtomicI64>, // timestamp of the last query in seconds
 }
 
@@ -25,7 +25,7 @@ const TASK_EXPIRATION_SEC: i64 = 120;
 
 impl HCombService {
     pub fn new() -> Self {
-        let config = ExecutionConfig::new()
+        let execution_config = ExecutionConfig::new()
             .with_batch_size(2048)
             .with_concurrency(1);
         let last_query = Arc::new(AtomicI64::new(chrono::Utc::now().timestamp()));
@@ -47,7 +47,7 @@ impl HCombService {
         });
         Self {
             results_service: Arc::new(ResultsService::new()),
-            execution_context: Mutex::new(ExecutionContext::with_config(config)),
+            execution_config,
             last_query,
         }
     }
@@ -61,6 +61,8 @@ impl HCombService {
         source: String,
     ) -> Result<(String, SendableRecordBatchStream)> {
         println!("[hcomb] execute query...");
+        let mut execution_context =
+            ExecutionContext::with_config(self.execution_config.clone());
         self.last_query
             .store(chrono::Utc::now().timestamp(), Ordering::Relaxed);
         let query_id = provider_desc.query_id().to_owned();
@@ -70,11 +72,11 @@ impl HCombService {
         let provider = HCombTable::new(provider_desc, Box::pin(batch_stream));
         let physical_plan;
         {
-            let mut exec_context_guard = self.execution_context.lock().unwrap();
-            exec_context_guard.register_table(&source, Box::new(provider));
-            let df = exec_context_guard.sql(&sql)?;
+            // limit scope of df because not send so should not overlab await
+            execution_context.register_table(&source, Box::new(provider));
+            let df = execution_context.sql(&sql)?;
             let plan = df.to_logical_plan();
-            physical_plan = exec_context_guard.create_physical_plan(&plan)?;
+            physical_plan = execution_context.create_physical_plan(&plan)?;
         }
 
         // if necessary, merge the partitions

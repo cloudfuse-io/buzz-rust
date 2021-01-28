@@ -18,7 +18,7 @@ async fn exec(mut req: Request<Body>) -> Result<Response<Body>, DynError> {
     let (hbee_table_desc, sql, source) = hbee_event.plan.parse()?;
     tokio::spawn(async {
         let collector = Box::new(HttpCollector {});
-        let mut hbee_service = HBeeService::new(collector).await;
+        let hbee_service = HBeeService::new(collector).await;
         let res = hbee_service
             .execute_query(
                 hbee_event.query_id,

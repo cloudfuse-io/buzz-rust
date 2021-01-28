@@ -36,7 +36,7 @@ async fn new_plan(event: Value) -> Result<HBeePlan, Box<dyn Error>> {
 async fn exec(event: Value) -> Result<(), Box<dyn Error>> {
     let plan = new_plan(event).await?;
     let collector = Box::new(NoopCollector {});
-    let mut hbee_service = HBeeService::new(collector).await;
+    let hbee_service = HBeeService::new(collector).await;
     hbee_service
         .execute_query(
             QUERY_ID.to_owned(),

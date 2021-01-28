@@ -9,7 +9,7 @@ async fn exec(event: Value) -> Result<(), Box<dyn Error>> {
     let hbee_event: HBeeEvent = serde_json::from_value(event)?;
     let (hbee_table_desc, sql, source) = hbee_event.plan.parse()?;
     let collector = Box::new(HttpCollector {});
-    let mut hbee_service = HBeeService::new(collector).await;
+    let hbee_service = HBeeService::new(collector).await;
     hbee_service
         .execute_query(
             hbee_event.query_id,
