@@ -8,7 +8,7 @@ use crate::models::HCombAddress;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use async_trait::async_trait;
-use tokio::stream::Stream;
+use tokio_stream::Stream;
 
 #[async_trait]
 pub trait HCombScheduler {

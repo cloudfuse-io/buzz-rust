@@ -37,34 +37,30 @@ name = "fuse_lambda"
 path = "src/bin/main_fuse_lambda.rs"
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "d61e185" }
-arrow-parquet = { package = "parquet", git = "https://github.com/apache/arrow", rev = "d61e185" }
-datafusion = { git = "https://github.com/apache/arrow", rev = "d61e185" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev = "d61e185" }
-
-# arrow = { path = "../../arrow/rust/arrow", feature=["prettyprint"] }
-# parquet = { path = "../../arrow/rust/parquet" }
-# datafusion = { path = "../../arrow/rust/datafusion" }
-# arrow-flight = { path = "../../arrow/rust/arrow-flight" }
+arrow = { git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
+arrow-parquet = { package = "parquet", git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
+datafusion = { git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
 
 chrono = { version = "0.4" }
-tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded", "io-std"] }
-rusoto_core = { version = "0.45.0", default_features = false, features=["rustls"] }
-rusoto_s3 = { version = "0.45.0", default_features = false, features=["rustls"] }
-rusoto_lambda = { version = "0.45.0", default_features = false, features=["rustls"] }
-rusoto_ecs = { version = "0.45.0", default_features = false, features=["rustls"] }
+tokio = { version = "1.0", features = ["fs", "macros", "io-std"] }
+tokio-stream = { version = "0.1.2" }
+rusoto_core = { version = "0.46.0", default_features = false, features=["rustls"] }
+rusoto_s3 = { version = "0.46.0", default_features = false, features=["rustls"] }
+rusoto_lambda = { version = "0.46.0", default_features = false, features=["rustls"] }
+rusoto_ecs = { version = "0.46.0", default_features = false, features=["rustls"] }
 async-trait = "0.1"
 futures = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 lambda_runtime = "0.2.1"
-tonic = "0.3"
+tonic = "0.4"
 pin-project = "1.0"
-prost = "0.6"
-prost-types = "0.6"
-hyper = { version = "0.13.4", features = ["stream"] }
+prost = "0.7"
+prost-types = "0.7"
+hyper = { version = "0.14.2", features = ["stream"] }
 base64 = { version = "0.13.0" }
 envy = {version = "0.4" }
 
 [build-dependencies]
-prost-build = { version = "0.6.1" }
+prost-build = { version = "0.7" }

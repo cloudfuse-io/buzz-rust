@@ -29,7 +29,7 @@ pub async fn start_fuse(
     hcomb_addr: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // a fuse is all about the right delay, otherwise everything explodes to your face :)
-    tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
+    tokio::time::sleep(std::time::Duration::new(1, 0)).await;
 
     let hbee_scheduler = TestHBeeScheduler {
         domain: hbee_addr.to_owned(),

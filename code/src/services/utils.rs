@@ -71,8 +71,8 @@ mod tests {
         let log_plan = &filtered_df.to_logical_plan();
         find_table_name::<EmptyTable>(log_plan)?;
 
-        let grouped_df = filtered_df
-            .aggregate(vec![scalar_expr.clone()], vec![sum(scalar_expr.clone())])?;
+        let grouped_df =
+            filtered_df.aggregate(&[scalar_expr.clone()], &[sum(scalar_expr.clone())])?;
         let log_plan = &grouped_df.to_logical_plan();
         find_table_name::<EmptyTable>(log_plan)?;
 

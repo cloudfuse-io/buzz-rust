@@ -77,9 +77,19 @@ impl ParquetExec {
             );
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader.clone());
 
-            if file_schema.fields() != arrow_reader.get_schema()?.fields() {
+            let schema_eq = file_schema
+                .fields()
+                .iter()
+                .zip(arrow_reader.get_schema()?.fields().iter())
+                .all(|x| {
+                    x.0.name() == x.1.name()
+                        && x.0.data_type() == x.1.data_type()
+                        && x.0.is_nullable() == x.1.is_nullable()
+                });
+
+            if !schema_eq {
                 return Err(DataFusionError::Plan(format!(
-                    "Expected and parsed schema fields are not equal: {:?} != {:?}",
+                    "Expected and parsed schema fields are not equal: \n{:?} \n!= \n{:?}",
                     file_schema.fields(),
                     arrow_reader.get_schema()?.fields()
                 )));
@@ -262,7 +272,7 @@ mod tests {
     use arrow_parquet::arrow::ArrowWriter;
     use async_trait::async_trait;
     use tokio::fs::File as TokioFile;
-    use tokio::io::AsyncReadExt;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
     #[tokio::test]
     async fn test_small_parquet() {
@@ -279,8 +289,31 @@ mod tests {
         assert_eq!(format!("{:?}", results[0]), format!("{:?}", rec_batch));
     }
 
+    #[tokio::test]
+    async fn test_parquet_two_columns() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Utf8, false),
+        ]));
+        let rec_batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5])),
+                Arc::new(StringArray::from(vec![
+                    "hello", "from", "the", "other", "side",
+                ])),
+            ],
+        )
+        .unwrap();
+
+        let filename = "test_2col_parquet.parquet";
+        let results = write_and_exec(&rec_batch, filename).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(format!("{:?}", results[0]), format!("{:?}", rec_batch));
+    }
+
     // Without the threaded_scheduler the async machine gets stuck because of blocking call
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_larger_parquet() {
         let schema =
             Arc::new(Schema::new(vec![Field::new("a", DataType::Float64, false)]));

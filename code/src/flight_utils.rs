@@ -16,6 +16,7 @@ use arrow_flight::utils::{
 use arrow_flight::{flight_descriptor, FlightData, FlightDescriptor};
 use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::{Stream, StreamExt};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::Status;
 
 /// Convert a flight stream to a tuple with the cmd in the first flight and a stream of RecordBatch
@@ -30,7 +31,7 @@ pub async fn flight_to_batches(
     // all the remaining stream messages should be dictionary and record batches
     let record_batch_stream = flights.map(move |flight_data_res| match flight_data_res {
         Ok(flight_data) => {
-            flight_data_to_arrow_batch(&flight_data, Arc::clone(&schema)).unwrap()
+            flight_data_to_arrow_batch(&flight_data, Arc::clone(&schema), &[])
         }
         Err(e) => Err(ArrowError::ExternalError(Box::new(e))),
     });
@@ -59,8 +60,11 @@ pub async fn batch_stream_to_flight(
             .for_each(|batch_res| async {
                 match batch_res {
                     Ok(batch) => {
-                        flight_data_from_arrow_batch(&batch, &options)
+                        let (dicts, data) =
+                            flight_data_from_arrow_batch(&batch, &options);
+                        dicts
                             .into_iter()
+                            .chain(std::iter::once(data))
                             .for_each(|flight| (&sender).send(Ok(flight)).unwrap());
                     }
                     Err(err) => {
@@ -73,7 +77,7 @@ pub async fn batch_stream_to_flight(
             .await;
     });
 
-    Ok(result)
+    Ok(UnboundedReceiverStream::new(result))
 }
 
 /// Convert a vector of RecordBatches and a cmd to a stream of flights
@@ -97,7 +101,10 @@ pub async fn batch_vec_to_flight(
 
     let mut batches: Vec<FlightData> = batches
         .iter()
-        .flat_map(|batch| flight_data_from_arrow_batch(batch, &options))
+        .flat_map(|batch| {
+            let (dicts, data) = flight_data_from_arrow_batch(batch, &options);
+            dicts.into_iter().chain(std::iter::once(data))
+        })
         .collect();
 
     // append batch vector to schema vector, so that the first message sent is the schema

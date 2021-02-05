@@ -120,7 +120,7 @@ impl RangeCache {
             let pool = Arc::new(tokio::sync::Semaphore::new(8));
             while let Some(message) = rx.recv().await {
                 // obtain a permit, it will be released in the spawned download task
-                let permit = pool.acquire().await;
+                let permit = pool.acquire().await.unwrap();
                 permit.forget();
                 // run download in a dedicated task
                 let downloaders_ref = Arc::clone(&downloaders_ref);
@@ -342,7 +342,7 @@ mod tests {
             _start: u64,
             length: usize,
         ) -> Result<Vec<u8>> {
-            tokio::time::delay_for(Duration::from_millis(10)).await;
+            tokio::time::sleep(Duration::from_millis(10)).await;
             Ok(pattern(0, length))
         }
     }

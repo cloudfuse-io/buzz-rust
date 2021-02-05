@@ -3,8 +3,9 @@ use std::sync::Mutex;
 
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
-use tokio::stream::Stream;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self};
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::Stream;
 
 struct IntermediateRes {
     tx: Option<mpsc::UnboundedSender<ArrowResult<RecordBatch>>>,
@@ -38,7 +39,7 @@ impl ResultsService {
                 },
             );
         }
-        rx
+        UnboundedReceiverStream::new(rx)
     }
 
     pub fn add_result(&self, query_id: &str, data: ArrowResult<RecordBatch>) {

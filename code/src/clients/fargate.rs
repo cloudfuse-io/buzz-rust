@@ -52,7 +52,7 @@ impl FargateCreationClient {
 
         println!("[fuse] task started");
 
-        tokio::time::delay_for(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
 
         let result = self
             .wait_for_provisioning(task_arn.unwrap(), config.hcomb_cluster_name.clone())
@@ -185,7 +185,7 @@ impl FargateCreationClient {
                 }
             }
 
-            tokio::time::delay_for(Duration::from_millis(200)).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
         }
     }
 }
