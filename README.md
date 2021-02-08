@@ -4,24 +4,28 @@
 [![Build Status](https://travis-ci.com/cloudfuse-io/buzz-rust.svg?token=9RxDUsNXba9MDDdpBaZt&branch=master)](https://travis-ci.com/cloudfuse-io/buzz-rust)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Welcome to the Rust implementation of Buzz. Buzz is a serverless query engine. The Rust implementation is based on Apache Arrow and the DataFusion engine.
+Buzz is a serverless analytics query engine:
+- Serverless means that it does not use any resources when idle, but also that it can scale instantly (and massively) to respond to incoming requests.
+- An analytics query engine is a system that computes statistics or performs searches on large amounts of data.
+
+The Rust implementation is based on Apache Arrow and the DataFusion engine.
 
 ## Architecture
 
 Buzz is composed of three systems:
-- :honeybee: the HBees: cloud function workers that fetch data from the cloud storage and pre-aggregate it
-- :honey_pot: the HCombs: container based reducers that collect the intermediate state from the hbees and finialize the aggregation
-- :sparkler: the Fuse: a cloud function entrypoint that acts as scheduler and resource manager for a given query
+- :honeybee: the HBees: cloud function workers that fetch data from the cloud storage and pre-aggregate it. They perform perform a highly scalable _map_ operation on the data.
+- :honey_pot: the HCombs: container based reducers that collect the intermediate state from the hbees and finialize the aggregation. They perform a low latency _reduce_ operation on the data.
+- :sparkler: the Fuse: a cloud function entrypoint that acts as scheduler and resource manager for a given query.
 
 ![Design overview](https://raw.githubusercontent.com/wiki/cloudfuse-io/buzz-rust/resources/design-principle-cropped.png)
 
-The Buzz query is composed of different SQL statements for the different stages. This is different from most distributed engines that have a scheduler that takes care of splitting a unique SQL query into multiple stages to be executed on different executors. The reason is that in Buzz, our executors (HBees and HCombs) have very different behaviors and capabilities. This is unusual and designing a query planner that understands this is not obvious. We prefer leaving it to our dear users, who are notoriously known to be smart, to decide what part of the query should be executed where. Further down the road, we might come up with a scheduler that is able to figure this out automatically.
+Buzz analytics queries are defined with SQL. The query is composed of different statements for the different stages (see example [here](code/examples/query.json)). This is different from most distributed engines that have a scheduler that takes care of splitting a unique SQL query into multiple stages to be executed on different executors. The reason is that in Buzz, our executors (HBees and HCombs) have very different behaviors and capabilities. This is unusual and designing a query planner that understands this is not obvious. We prefer leaving it to our dear users, who are notoriously known to be smart, to decide what part of the query should be executed where. Further down the road, we might come up with a scheduler that is able to figure this out automatically.
 
 Note: the _h_ in hbee and hcomb stands for honey, of course ! :smiley:
 
 ## Tooling
 
-The Makefile contains all the usefull commands to build, deploy and test-run Buzz, so you will likely need make to be installed.
+The Makefile contains all the usefull commands to build, deploy and test-run Buzz, so you will likely need `make` to be installed.
 
 Because Buzz is a cloud native query engine, many commands require an AWS account to be run. The Makefile uses the credentials stored in your `~/.aws/credentials` file (cf. [doc](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)) to access your cloud accounts on your behalf. 
 
@@ -101,4 +105,4 @@ Current limitations:
 - only single datasource queries can be run (no join)
 - a Buzz stack can only read S3 in its own region (because of S3 Gateway Endpoint)
 
-Note that the first query is slow (and might even timeout!) because it firsts needs to create a container for the HComb, which typically takes 15-25s on Fargate. Subsequent queries are much faster because they reuse the HComb. The HComb is stopped after a configurable duration of inactivity (typically 2 minutes).
+Note that the first query is slow (and might even timeout!) because it first needs to start a container for the HComb, which typically takes 15-25s on Fargate. Subsequent queries are much faster because they reuse the HComb container. The HComb is stopped after a configurable duration of inactivity (typically 2 minutes).
