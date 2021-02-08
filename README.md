@@ -5,8 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Buzz is best defined by the following key concepts:
-- *Interactive analytics query engine*, a system that quickly computes statistics or performs searches on a huge amount of data.
-- *Cloud serverless*, it does not use any resource when idle, but it can scale instantly (and massively) to respond to incoming requests.
+- **Interactive analytics query engine**, it quickly computes statistics or performs searches on huge amounts of data.
+- **Cloud serverless**, it does not use any resource when idle, but can scale instantly (and massively) to respond to incoming requests.
 
 Functionally, it can be compared to the managed analytics query services offered by all major cloud providers, but differs in that it is open source and uses lower-level components such as cloud functions and cloud storage.
 
