@@ -6,7 +6,7 @@
 ## BUILD STAGE ##
 # Create a static binary (with musl) for one of the binary targets.
 
-FROM rust:latest as build-stage
+FROM rust:1.50.0-buster as build-stage
 ARG BIN_NAME
 
 # install environment
