@@ -23,7 +23,7 @@ pub trait SplittableTable {
     fn statistics(&self) -> Statistics {
         Statistics::default()
     }
-    fn file_table(&self) -> Box<dyn TableProvider + Send + Sync>;
+    fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync>;
 }
 
 /// A generic catalog table that wraps splittable tables
@@ -117,6 +117,7 @@ impl TableProvider for CatalogTable {
         _projection: &Option<Vec<usize>>,
         _batch_size: usize,
         _filters: &[Expr],
+        _limit: Option<usize>,
     ) -> DataFusionResult<Arc<dyn ExecutionPlan>> {
         Err(DataFusionError::Plan(
             "Catalog table cannot generate an execution plan".to_owned(),

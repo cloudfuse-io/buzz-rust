@@ -6,7 +6,7 @@
 ## BUILD STAGE ##
 # Create a static binary (with musl) for one of the binary targets.
 
-FROM rust:1.50.0-buster as build-stage
+FROM rust:1.53.0-buster as build-stage
 ARG BIN_NAME
 
 # install environment
@@ -15,8 +15,6 @@ RUN apt-get update
 RUN apt-get install musl-tools zip -y
 
 WORKDIR /buildspace
-
-COPY ./code/rust-toolchain .
 
 RUN rustup target add x86_64-unknown-linux-musl && rustup component add rustfmt 
 

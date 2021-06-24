@@ -1,9 +1,13 @@
 use fmt::Debug;
 use std::any::Any;
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
+use std::fmt;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{fmt, thread};
+use tokio::{
+    sync::mpsc::{channel, Receiver, Sender},
+    task,
+};
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::clients::CachedFile;
 use arrow::datatypes::{Schema, SchemaRef};
@@ -16,7 +20,7 @@ use datafusion::error::{DataFusionError, Result as DataFusionResult};
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::physical_plan::Partitioning;
 use datafusion::physical_plan::{RecordBatchStream, SendableRecordBatchStream};
-use futures::stream::Stream;
+use futures::stream::{Stream, StreamExt};
 
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]
@@ -164,17 +168,15 @@ impl ExecutionPlan for ParquetExec {
         partition: usize,
     ) -> DataFusionResult<SendableRecordBatchStream> {
         let parquet_reader = self.init_file(partition).await?;
-        // because the parquet implementation is not thread-safe, it is necessary to execute
-        // on a thread and communicate with channels
         let (response_tx, response_rx): (
-            SyncSender<Option<ArrowResult<RecordBatch>>>,
-            Receiver<Option<ArrowResult<RecordBatch>>>,
-        ) = sync_channel(2);
+            Sender<ArrowResult<RecordBatch>>,
+            Receiver<ArrowResult<RecordBatch>>,
+        ) = channel(2);
 
         let projection = self.projection.clone();
         let batch_size = self.batch_size;
 
-        thread::spawn(move || {
+        task::spawn_blocking(move || {
             if let Err(e) = read_file(parquet_reader, projection, batch_size, response_tx)
             {
                 println!("Parquet reader thread terminated due to error: {:?}", e);
@@ -183,17 +185,17 @@ impl ExecutionPlan for ParquetExec {
 
         Ok(Box::pin(ParquetStream {
             schema: self.projected_schema.clone(),
-            response_rx,
+            response_rx: ReceiverStream::new(response_rx),
         }))
     }
 }
 
 fn send_result(
-    response_tx: &SyncSender<Option<ArrowResult<RecordBatch>>>,
-    result: Option<ArrowResult<RecordBatch>>,
+    response_tx: &Sender<ArrowResult<RecordBatch>>,
+    result: ArrowResult<RecordBatch>,
 ) -> DataFusionResult<()> {
     response_tx
-        .send(result)
+        .blocking_send(result)
         .map_err(|e| DataFusionError::Execution(e.to_string()))?;
     Ok(())
 }
@@ -202,17 +204,15 @@ fn read_file(
     file_reader: Arc<SerializedFileReader<CachedFile>>,
     projection: Vec<usize>,
     batch_size: usize,
-    response_tx: SyncSender<Option<ArrowResult<RecordBatch>>>,
+    response_tx: Sender<ArrowResult<RecordBatch>>,
 ) -> DataFusionResult<()> {
     let mut arrow_reader = ParquetFileArrowReader::new(file_reader.clone());
     let mut batch_reader =
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
     loop {
         match batch_reader.next() {
-            Some(Ok(batch)) => send_result(&response_tx, Some(Ok(batch)))?,
+            Some(Ok(batch)) => send_result(&response_tx, Ok(batch))?,
             None => {
-                // finished reading file
-                send_result(&response_tx, None)?;
                 break;
             }
             Some(Err(e)) => {
@@ -220,7 +220,7 @@ fn read_file(
                 // send error to operator
                 send_result(
                     &response_tx,
-                    Some(Err(ArrowError::ParquetError(err_msg.clone()))),
+                    Err(ArrowError::ParquetError(err_msg.clone())),
                 )?;
                 // terminate thread with error
                 return Err(DataFusionError::Execution(err_msg));
@@ -232,21 +232,17 @@ fn read_file(
 
 struct ParquetStream {
     schema: SchemaRef,
-    response_rx: Receiver<Option<ArrowResult<RecordBatch>>>,
+    response_rx: ReceiverStream<ArrowResult<RecordBatch>>,
 }
 
 impl Stream for ParquetStream {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        _: &mut Context<'_>,
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        match self.response_rx.recv() {
-            Ok(batch) => Poll::Ready(batch),
-            // RecvError means receiver has exited and closed the channel
-            Err(_) => Poll::Ready(None),
-        }
+        self.response_rx.poll_next_unpin(cx)
     }
 }
 

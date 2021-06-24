@@ -17,7 +17,9 @@ use futures::stream::Stream;
 use pin_project::pin_project;
 
 pub struct StreamExec {
-    stream: Mutex<Option<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>>>,
+    stream: Mutex<
+        Option<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send + Sync>>>,
+    >,
     schema: SchemaRef,
 
     projection: Vec<usize>,
@@ -36,7 +38,7 @@ impl fmt::Debug for StreamExec {
 
 impl StreamExec {
     pub fn new(
-        stream: Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>,
+        stream: Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send + Sync>>,
         schema: SchemaRef,
         projection: Option<Vec<usize>>,
         batch_size: usize,

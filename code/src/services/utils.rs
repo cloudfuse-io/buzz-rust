@@ -2,13 +2,14 @@ use crate::error::Result;
 use crate::not_impl_err;
 use datafusion::datasource::TableProvider;
 use datafusion::logical_plan::LogicalPlan;
+use std::sync::Arc;
 
 /// Search a TableProvider of the given type in the plan.
 /// Only works with linear plans (only one datasource).
 pub fn find_table_name<'a, T: TableProvider + 'static>(
     plan: &'a LogicalPlan,
 ) -> Result<&'a str> {
-    let new_inputs = datafusion::optimizer::utils::inputs(&plan);
+    let new_inputs = plan.inputs();
     if new_inputs.len() > 1 {
         Err(not_impl_err!(
             "Operations with more than one inputs are not supported",
@@ -71,8 +72,8 @@ mod tests {
         let log_plan = &filtered_df.to_logical_plan();
         find_table_name::<EmptyTable>(log_plan)?;
 
-        let grouped_df =
-            filtered_df.aggregate(&[scalar_expr.clone()], &[sum(scalar_expr.clone())])?;
+        let grouped_df = filtered_df
+            .aggregate(vec![scalar_expr.clone()], vec![sum(scalar_expr.clone())])?;
         let log_plan = &grouped_df.to_logical_plan();
         find_table_name::<EmptyTable>(log_plan)?;
 
@@ -86,7 +87,7 @@ mod tests {
     #[test]
     fn search_table_sql_plan() -> Result<()> {
         let mut ctx = ExecutionContext::new();
-        let empty_table = Box::new(EmptyTable::new(Arc::new(Schema::empty())));
+        let empty_table = Arc::new(EmptyTable::new(Arc::new(Schema::empty())));
         ctx.register_table("test_tbl", empty_table);
         let df = ctx.sql("SELECT * FROM test_tbl")?;
         let log_plan = df.to_logical_plan();

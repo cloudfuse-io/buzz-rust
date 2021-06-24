@@ -1,6 +1,6 @@
 [package]
 name = "buzz-rust"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["rdettai <contact@cloudfuse.io>"]
 edition = "2018"
 build = "build.rs"
@@ -37,10 +37,10 @@ name = "fuse_lambda"
 path = "src/bin/main_fuse_lambda.rs"
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
-arrow-parquet = { package = "parquet", git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
-datafusion = { git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev = "e676aeacb2c6597c063faeed20d6142b0df938d8" }
+arrow = { version = "4.3", features = ["prettyprint"] }
+arrow-parquet = { package = "parquet", version = "4.3", features = ["arrow"] }
+datafusion = { git = "https://github.com/apache/arrow-datafusion", rev = "c82c29c926e73b3c3b9c5351bcd7b01e4d0aa6a8" }
+arrow-flight = { version = "4.0"  }
 
 chrono = { version = "0.4" }
 tokio = { version = "1.0", features = ["fs", "macros", "io-std"] }

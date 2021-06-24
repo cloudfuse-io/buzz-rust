@@ -44,14 +44,16 @@ impl HCombTableDesc {
 
 /// A table from a stream of batches that can be executed only once
 pub struct HCombTable {
-    stream: Mutex<Option<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>>>,
+    stream: Mutex<
+        Option<Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send + Sync>>>,
+    >,
     desc: HCombTableDesc,
 }
 
 impl HCombTable {
     pub fn new(
         desc: HCombTableDesc,
-        stream: Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send>>,
+        stream: Pin<Box<dyn Stream<Item = ArrowResult<RecordBatch>> + Send + Sync>>,
     ) -> Self {
         Self {
             stream: Mutex::new(Some(stream)),
@@ -82,6 +84,7 @@ impl TableProvider for HCombTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         _filters: &[Expr],
+        _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match self.stream.lock().unwrap().take() {
             Some(stream) => Ok(Arc::new(StreamExec::new(
@@ -124,7 +127,7 @@ mod tests {
             )),
         );
 
-        let exec_plan = hcomb_table.scan(&None, 1024, &[])?;
+        let exec_plan = hcomb_table.scan(&None, 1024, &[], None)?;
 
         let results = datafusion::physical_plan::collect(exec_plan).await?;
         assert_eq!(results.len(), 1);
@@ -139,7 +142,7 @@ mod tests {
             HCombTableDesc::new("mock_query_id".to_owned(), 1, schema.clone());
         let hcomb_table = HCombTable::new_empty(hcomb_table_desc);
 
-        let exec_plan = hcomb_table.scan(&Some(vec![0]), 2048, &[])?;
+        let exec_plan = hcomb_table.scan(&Some(vec![0]), 2048, &[], None)?;
 
         let results = datafusion::physical_plan::collect(exec_plan).await?;
         assert_eq!(results.len(), 0);

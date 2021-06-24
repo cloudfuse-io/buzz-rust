@@ -73,7 +73,8 @@ impl HCombService {
         let physical_plan;
         {
             // limit scope of df because not send so should not overlab await
-            execution_context.register_table(&source, Box::new(provider));
+            let source_ref: &str = &source;
+            execution_context.register_table(source_ref, Arc::new(provider));
             let df = execution_context.sql(&sql)?;
             let plan = df.to_logical_plan();
             physical_plan = execution_context.create_physical_plan(&plan)?;

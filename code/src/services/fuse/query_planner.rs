@@ -7,6 +7,7 @@ use crate::services::utils;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::LogicalPlan;
 use futures::future::{BoxFuture, FutureExt};
+use std::sync::Arc;
 
 pub struct QueryPlanner {
     /// This execution context is not meant to run queries but only to plan them.
@@ -50,7 +51,7 @@ impl QueryPlanner {
     }
 
     pub fn add_catalog(&mut self, name: &str, table: CatalogTable) {
-        self.execution_context.register_table(name, Box::new(table));
+        self.execution_context.register_table(name, Arc::new(table));
     }
 
     pub async fn plan(
@@ -89,12 +90,12 @@ impl QueryPlanner {
         // register a handle to the intermediate table on the context
         let hcomb_table_desc =
             HCombTableDesc::new(query_id, nb_hbee, bee_output_schema.into());
-        let hcomb_expected_src = &hbee_step.name;
+        let hcomb_expected_src: &str = &hbee_step.name;
 
         // plan the hcomb part of the query, to check if it is valid
         let hcomb_table = HCombTable::new_empty(hcomb_table_desc.clone());
         self.execution_context
-            .register_table(hcomb_expected_src, Box::new(hcomb_table));
+            .register_table(hcomb_expected_src, Arc::new(hcomb_table));
         let hcomb_df = self.execution_context.sql(&hcomb_step.sql)?;
         let hcomb_plan = hcomb_df.to_logical_plan();
         let hcomb_actual_src = utils::find_table_name::<HCombTable>(&hcomb_plan)?;
@@ -143,7 +144,7 @@ impl QueryPlanner {
         partition_filters: &'a Option<String>,
     ) -> BoxFuture<'a, Result<Vec<HBeeTableDesc>>> {
         async move {
-            let new_inputs = datafusion::optimizer::utils::inputs(&plan);
+            let new_inputs = plan.inputs();
             if new_inputs.len() > 1 {
                 Err(not_impl_err!(
                     "Operations with more than one inputs are not supported",

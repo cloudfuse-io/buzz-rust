@@ -53,7 +53,7 @@ impl SplittableTable for MockSplittableTable {
     fn schema(&self) -> SchemaRef {
         test_schema()
     }
-    fn file_table(&self) -> Box<dyn TableProvider + Send + Sync> {
+    fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
         let mut fields = vec![
             Field::new("key", DataType::Utf8, false),
             Field::new("length", DataType::UInt64, false),
@@ -80,7 +80,7 @@ impl SplittableTable for MockSplittableTable {
         let batches = RecordBatch::try_new(Arc::clone(&file_table_schema), arrays)
             .expect("Invalid test data");
 
-        Box::new(
+        Arc::new(
             MemTable::try_new(file_table_schema, vec![vec![batches]])
                 .expect("invalid test table"),
         )

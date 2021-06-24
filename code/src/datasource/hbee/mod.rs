@@ -56,11 +56,16 @@ impl TableProvider for HBeeTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         filters: &[Expr],
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match self.desc.as_ref() {
-            HBeeTableDesc::S3Parquet(table) => {
-                table.scan(Arc::clone(&self.cache), projection, batch_size, filters)
-            }
+            HBeeTableDesc::S3Parquet(table) => table.scan(
+                Arc::clone(&self.cache),
+                projection,
+                batch_size,
+                filters,
+                limit,
+            ),
         }
     }
 
