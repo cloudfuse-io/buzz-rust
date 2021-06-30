@@ -21,7 +21,7 @@ pub struct HCombService {
     last_query: Arc<AtomicI64>, // timestamp of the last query in seconds
 }
 
-const TASK_EXPIRATION_SEC: i64 = 120;
+const TASK_EXPIRATION_SEC: i64 = 300;
 
 impl HCombService {
     pub fn new() -> Self {

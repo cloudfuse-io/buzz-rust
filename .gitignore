@@ -1,4 +1,3 @@
-*.parquet
 /infra/.terraform
 .vscode
 default.env

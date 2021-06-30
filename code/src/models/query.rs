@@ -20,8 +20,22 @@ pub struct HCombCapacity {
     pub zones: i16,
 }
 
+#[derive(PartialEq, Deserialize)]
+pub enum BuzzCatalogType {
+    DeltaLake,
+    Static,
+}
+
+#[derive(Deserialize)]
+pub struct BuzzCatalog {
+    pub name: String,
+    pub uri: String,
+    pub r#type: BuzzCatalogType,
+}
+
 #[derive(Deserialize)]
 pub struct BuzzQuery {
     pub steps: Vec<BuzzStep>,
     pub capacity: HCombCapacity,
+    pub catalogs: Vec<BuzzCatalog>,
 }

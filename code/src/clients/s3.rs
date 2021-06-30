@@ -25,6 +25,7 @@ impl Downloader for S3Downloader {
   ) -> Result<Vec<u8>> {
     let mut file_id_split = file_id.split("/");
     let range = format!("bytes={}-{}", start, start + length as u64 - 1);
+    println!("file_id:{}", file_id);
     let get_obj_req = GetObjectRequest {
       bucket: file_id_split.next().unwrap().to_owned(),
       key: file_id_split.collect::<Vec<&str>>().join("/"),

@@ -160,7 +160,12 @@ module "fuse" {
   vpc_id  = module.vpc.vpc_id
   subnets = module.vpc.public_subnets
 
-  additional_policies = [aws_iam_policy.fargate-additional-policy.arn, aws_iam_policy.lambda-additional-policy.arn]
+  additional_policies = [
+    aws_iam_policy.s3-additional-policy.arn,
+    aws_iam_policy.fargate-additional-policy.arn,
+    aws_iam_policy.lambda-additional-policy.arn
+  ]
+
   environment = {
     GIT_REVISION       = var.git_revision
     HBEE_LAMBDA_NAME   = module.hbee.lambda_name

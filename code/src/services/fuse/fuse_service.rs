@@ -4,9 +4,10 @@ use super::hbee_scheduler::HBeeScheduler;
 use super::hcomb_manager::HCombManager;
 use super::hcomb_scheduler::HCombScheduler;
 use super::query_planner::QueryPlanner;
-use crate::datasource::CatalogTable;
+use crate::datasource::{CatalogTable, DeltaCatalogTable};
 use crate::error::Result;
-use crate::models::query::BuzzQuery;
+use crate::example_catalog;
+use crate::models::query::{BuzzCatalog, BuzzCatalogType, BuzzQuery};
 use arrow::record_batch::RecordBatch;
 use arrow::util::pretty;
 use chrono::Utc;
@@ -35,11 +36,28 @@ impl FuseService {
         }
     }
 
-    pub fn add_catalog(&mut self, name: &str, table: CatalogTable) {
-        self.query_planner.add_catalog(name, table);
+    pub async fn configure_catalog(&mut self, configs: &Vec<BuzzCatalog>) {
+        // TODO check definition validity
+        for conf in configs {
+            let catalog = match &conf.r#type {
+                BuzzCatalogType::Static => match &conf.uri[..] {
+                    "nyc_taxi_ursa" => example_catalog::nyc_taxi_ursa(),
+                    "nyc_taxi_cloudfuse" => example_catalog::nyc_taxi_cloudfuse(),
+                    "nyc_taxi_cloudfuse_sample" => {
+                        example_catalog::nyc_taxi_cloudfuse_sample()
+                    }
+                    _ => panic!("TODO handle missing catalog"),
+                },
+                BuzzCatalogType::DeltaLake => CatalogTable::new(Box::new(
+                    DeltaCatalogTable::new(&conf.uri, "us-east-2".to_owned()).await,
+                )),
+            };
+            self.query_planner.add_catalog(&conf.name, catalog)
+        }
     }
 
     pub async fn run(&mut self, query: BuzzQuery) -> Result<()> {
+        self.configure_catalog(&query.catalogs).await;
         let start_run = Instant::now();
         let addresses_future = self.hcomb_manager.find_or_start(&query.capacity);
         let query_id = format!("query-{}", Utc::now().to_rfc3339());

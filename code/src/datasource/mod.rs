@@ -4,6 +4,7 @@ mod catalog;
 mod hbee;
 mod hcomb;
 
+pub use catalog::delta_catalog::DeltaCatalogTable;
 pub use catalog::static_catalog::{CatalogFile, StaticCatalogTable};
 pub use catalog::test_catalog::MockSplittableTable;
 pub use catalog::{CatalogTable, SplittableTable};

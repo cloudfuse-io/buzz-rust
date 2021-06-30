@@ -1,7 +1,6 @@
 use std::error::Error;
 
 use buzz::error::{BuzzError, Result as BuzzResult};
-use buzz::example_catalog;
 use buzz::services::fuse::{
     FargateHCombManager, FuseService, HttpHCombScheduler, LambdaHBeeScheduler,
     QueryPlanner,
@@ -19,13 +18,6 @@ pub async fn start_fuse(event: Value) -> BuzzResult<()> {
         Box::new(hcomb_manager),
         Box::new(hcomb_scheduler),
         query_planner,
-    );
-
-    service.add_catalog("nyc_taxi_ursa", example_catalog::nyc_taxi_ursa());
-    service.add_catalog("nyc_taxi_cloudfuse", example_catalog::nyc_taxi_cloudfuse());
-    service.add_catalog(
-        "nyc_taxi_cloudfuse_sample",
-        example_catalog::nyc_taxi_cloudfuse_sample(),
     );
 
     println!("[fuse] initialized, starting query...");

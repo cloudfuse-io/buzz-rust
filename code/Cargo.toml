@@ -41,6 +41,8 @@ arrow = { version = "4.3", features = ["prettyprint"] }
 arrow-parquet = { package = "parquet", version = "4.3", features = ["arrow"] }
 datafusion = { git = "https://github.com/apache/arrow-datafusion", rev = "c82c29c926e73b3c3b9c5351bcd7b01e4d0aa6a8" }
 arrow-flight = { version = "4.0"  }
+deltalake = { git = "https://github.com/rdettai/delta-rs/", rev = "eedf67086aec773014dfbb1ee550134755974321", features = ["s3-rustls"] }
+# deltalake = { path = "../../delta-rs/rust", features = ["s3-rustls"] }
 
 chrono = { version = "0.4" }
 tokio = { version = "1.0", features = ["fs", "macros", "io-std"] }

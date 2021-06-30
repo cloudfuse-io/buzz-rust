@@ -6,6 +6,7 @@ use crate::models::SizedFile;
 use arrow::datatypes::DataType;
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
+use async_trait::async_trait;
 use datafusion::datasource::{MemTable, TableProvider};
 
 /// `pattern_vec(pattern, len)` creates a vector of String of length `len`
@@ -33,6 +34,7 @@ impl MockSplittableTable {
     }
 }
 
+#[async_trait]
 impl SplittableTable for MockSplittableTable {
     fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTableDesc> {
         files
@@ -51,9 +53,16 @@ impl SplittableTable for MockSplittableTable {
         &self.partitions
     }
     fn schema(&self) -> SchemaRef {
-        test_schema()
+        let mut fields = test_schema().fields().clone();
+        for partition_col in &self.partitions {
+            fields.push(Field::new(partition_col, DataType::Utf8, false))
+        }
+        Arc::new(Schema::new_with_metadata(
+            fields,
+            test_schema().metadata().clone(),
+        ))
     }
-    fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
+    async fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
         let mut fields = vec![
             Field::new("key", DataType::Utf8, false),
             Field::new("length", DataType::UInt64, false),

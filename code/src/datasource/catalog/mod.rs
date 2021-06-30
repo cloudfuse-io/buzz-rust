@@ -6,6 +6,7 @@ use crate::error::{BuzzError, Result};
 use crate::models::SizedFile;
 use arrow::array::*;
 use arrow::datatypes::*;
+use async_trait::async_trait;
 use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result as DataFusionResult};
@@ -15,15 +16,17 @@ use datafusion::physical_plan::ExecutionPlan;
 
 /// A specific type of TableProvider that cannot be converted to a physical plan
 /// but can be splitted to be distributed to hbees
+#[async_trait]
 pub trait SplittableTable {
     fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTableDesc>;
     /// Get the names of the partitioning columns, in order of evaluation.
     fn partition_columns(&self) -> &[String];
+    /// schema including the partition columns
     fn schema(&self) -> SchemaRef;
     fn statistics(&self) -> Statistics {
         Statistics::default()
     }
-    fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync>;
+    async fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync>;
 }
 
 /// A generic catalog table that wraps splittable tables
@@ -53,7 +56,7 @@ impl CatalogTable {
         let phys_plan;
         {
             let mut context = ExecutionContext::new();
-            context.register_table("catalog", self.source_table.file_table());
+            context.register_table("catalog", self.source_table.file_table().await);
             let sql_pattern = "SELECT * FROM catalog";
             let sql_statement = match partition_filters {
                 Some(sql_where) => format!("{} WHERE {}", sql_pattern, sql_where),
@@ -102,14 +105,7 @@ impl TableProvider for CatalogTable {
     }
 
     fn schema(&self) -> SchemaRef {
-        let mut fields = self.source_table.schema().fields().clone();
-        for partition_col in self.source_table.partition_columns() {
-            fields.push(Field::new(partition_col, DataType::Utf8, false))
-        }
-        Arc::new(Schema::new_with_metadata(
-            fields,
-            self.source_table.schema().metadata().clone(),
-        ))
+        self.source_table.schema()
     }
 
     fn scan(
@@ -129,10 +125,23 @@ impl TableProvider for CatalogTable {
     }
 }
 
+pub fn catalog_schema(partition_names: &[String]) -> Arc<Schema> {
+    let mut fields = vec![
+        Field::new("key", DataType::Utf8, false),
+        Field::new("length", DataType::UInt64, false),
+    ];
+    for col in partition_names {
+        fields.push(Field::new(col, DataType::Utf8, false));
+    }
+    Arc::new(Schema::new(fields))
+}
+
 //// Implems ////
 
+pub mod delta_catalog;
 pub mod static_catalog;
 pub(crate) mod test_catalog;
+// pub(crate) mod utils;
 
 #[cfg(test)]
 mod tests {

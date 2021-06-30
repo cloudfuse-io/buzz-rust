@@ -84,7 +84,7 @@ run-integ-aws: ask-run-target
 			--profile ${DEPLOY_PROFILE} \
 			--query 'LogResult' \
 			--output text \
-			--payload fileb://code/examples/query.json \
+			--payload fileb://code/examples/query-delta-taxi.json \
 			/dev/null | base64 -d
 
 

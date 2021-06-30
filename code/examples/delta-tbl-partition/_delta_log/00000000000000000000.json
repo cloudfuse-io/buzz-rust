@@ -1,0 +1,5 @@
+{"commitInfo":{"timestamp":1625061121471,"operation":"WRITE","operationParameters":{"mode":"Overwrite","partitionBy":"[\"year\"]"},"isBlindAppend":false,"operationMetrics":{"numFiles":"2","numOutputBytes":"1488","numOutputRows":"8"}}}
+{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+{"metaData":{"id":"27eb2f99-ef7a-4f7a-b969-15f874716409","format":{"provider":"parquet","options":{}},"schemaString":"{\"type\":\"struct\",\"fields\":[{\"name\":\"year\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"dept_name\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"dept_staff\",\"type\":\"long\",\"nullable\":true,\"metadata\":{}}]}","partitionColumns":["year"],"configuration":{},"createdTime":1625061120333}}
+{"add":{"path":"year=2020/part-00000-755eb925-59ad-4167-b46b-db694e7f3b2c.c000.snappy.parquet","partitionValues":{"year":"2020"},"size":744,"modificationTime":1625061122000,"dataChange":true}}
+{"add":{"path":"year=2021/part-00000-c22c8742-53c8-4ffa-b9c3-ba7705218ca2.c000.snappy.parquet","partitionValues":{"year":"2021"},"size":744,"modificationTime":1625061122000,"dataChange":true}}

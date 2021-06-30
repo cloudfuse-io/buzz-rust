@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use super::{CatalogTable, SplittableTable};
+use super::{catalog_schema, SplittableTable};
 use crate::datasource::{HBeeTableDesc, S3ParquetTable};
 use crate::error::Result;
 use crate::models::SizedFile;
 use arrow::array::*;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
+use async_trait::async_trait;
 use datafusion::datasource::{MemTable, TableProvider};
 
 pub struct CatalogFile {
@@ -43,14 +44,14 @@ impl StaticCatalogTable {
         bucket: String,
         partition_cols: Vec<String>,
         files: Vec<CatalogFile>,
-    ) -> CatalogTable {
-        CatalogTable::new(Box::new(Self {
+    ) -> Self {
+        Self {
             schema,
             region,
             bucket,
             files,
             partition_cols,
-        }))
+        }
     }
 
     fn to_table(&self) -> Result<Arc<dyn TableProvider + Send + Sync>> {
@@ -79,15 +80,7 @@ impl StaticCatalogTable {
             col_arrays.push(ArrayBuilder::finish(&mut partition_builder));
         }
 
-        // build schema
-        let mut fields = vec![
-            Field::new("key", DataType::Utf8, false),
-            Field::new("length", DataType::UInt64, false),
-        ];
-        for col in &self.partition_cols {
-            fields.push(Field::new(col, DataType::Utf8, false));
-        }
-        let schema = Arc::new(Schema::new(fields));
+        let schema = catalog_schema(&self.partition_cols);
 
         let record_batch = RecordBatch::try_new(Arc::clone(&schema), col_arrays)?;
         Ok(Arc::new(MemTable::try_new(
@@ -97,6 +90,7 @@ impl StaticCatalogTable {
     }
 }
 
+#[async_trait]
 impl SplittableTable for StaticCatalogTable {
     fn split(&self, files: Vec<SizedFile>) -> Vec<HBeeTableDesc> {
         files
@@ -115,9 +109,16 @@ impl SplittableTable for StaticCatalogTable {
         &self.partition_cols
     }
     fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+        let mut fields = self.schema.fields().clone();
+        for partition_col in &self.partition_cols {
+            fields.push(Field::new(partition_col, DataType::Utf8, false))
+        }
+        Arc::new(Schema::new_with_metadata(
+            fields,
+            self.schema.metadata().clone(),
+        ))
     }
-    fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
+    async fn file_table(&self) -> Arc<dyn TableProvider + Send + Sync> {
         self.to_table().unwrap()
     }
 }

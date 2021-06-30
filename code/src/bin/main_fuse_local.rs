@@ -1,28 +1,7 @@
-use buzz::example_catalog;
 use buzz::services::fuse::{
     FuseService, HttpHCombScheduler, QueryPlanner, TestHBeeScheduler, TestHCombManager,
 };
-
-const QUERY: &'static str = r#"
-{
-    "steps": [
-        {
-            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi GROUP BY payment_type",
-            "name": "nyc_taxi_map",
-            "step_type": "HBee",
-            "partition_filter": "month='2009/01'"
-        },
-        {
-            "sql": "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type",
-            "name": "nyc_taxi_reduce",
-            "step_type": "HComb"
-        }
-    ],
-    "capacity": {
-        "zones": 1
-    }
-}
-"#;
+use std::fs::read_to_string;
 
 pub async fn start_fuse(
     hbee_addr: &str,
@@ -30,6 +9,8 @@ pub async fn start_fuse(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // a fuse is all about the right delay, otherwise everything explodes to your face :)
     tokio::time::sleep(std::time::Duration::new(1, 0)).await;
+
+    let query_string = read_to_string("./examples/query-static-sample.json")?;
 
     let hbee_scheduler = TestHBeeScheduler {
         domain: hbee_addr.to_owned(),
@@ -46,9 +27,7 @@ pub async fn start_fuse(
         query_planner,
     );
 
-    service.add_catalog("nyc_taxi", example_catalog::nyc_taxi_cloudfuse_sample());
-
-    let query = serde_json::from_str(QUERY)?;
+    let query = serde_json::from_str(&query_string)?;
 
     service.run(query).await?;
     Ok(())

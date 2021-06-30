@@ -72,15 +72,15 @@ The code can be deployed to AWS through terraform:
 
 To run queries using the Makefile, you need the AWS cli v2+ to be installed.
 
-Example query (cf. [`code/examples/query.json`](code/examples/query.json)):
+Example query (cf. [`code/examples/query-delta-taxi.json`](code/examples/query-delta-taxi.json)):
 ```
 {
     "steps": [
         {
-            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi_ursa WHERE month<='2009/06' GROUP BY payment_type",
+            "sql": "SELECT payment_type, COUNT(payment_type) as payment_type_count FROM nyc_taxi GROUP BY payment_type",
             "name": "nyc_taxi_map",
             "step_type": "HBee",
-            "partition_filter": "month<='2009/06'"
+            "partition_filter": "pickup_date<='2009-01-05'"
         },
         {
             "sql": "SELECT payment_type, SUM(payment_type_count) FROM nyc_taxi_map GROUP BY payment_type",
@@ -90,11 +90,20 @@ Example query (cf. [`code/examples/query.json`](code/examples/query.json)):
     ],
     "capacity": {
         "zones": 1
-    }
+    },
+    "catalogs": [
+        {
+            "name": "nyc_taxi",
+            "type": "DeltaLake",
+            "uri": "s3://cloudfuse-taxi-data/delta-tables/nyc-taxi-daily"
+        }
+    ]
 }
 ```
 
 A query is a succession of steps. The `HBee` step type means that this part of the query runs in cloud functions (e.g AWS Lambda). The `HComb` step type means the associated query part runs on the container reducers (e.g AWS Fargate). The output of one step should be used as input (`FROM` statement) of the next step by refering to it by the step's name.
+
+A query takes the target list of file from a catalog. Supported catalogs are Static (file list compiled into the binary) and [DeltaLake](https://github.com/delta-io/delta).
 
 The `capacity.zone` field indicates the number of availability zones (and thus containers) used for `HComb` steps. This can be used to improve reducing capability and minimize cross-AZ data exchanges (both slower and more expensive).
 
@@ -107,4 +116,4 @@ Current limitations:
 - only single datasource queries can be run (no join)
 - a Buzz stack can only read S3 in its own region (because of S3 Gateway Endpoint)
 
-Note that the first query is slow (and might even timeout!) because it first needs to start a container for the HComb, which typically takes 15-25s on Fargate. Subsequent queries are much faster because they reuse the HComb container. The HComb is stopped after a configurable duration of inactivity (typically 2 minutes).
+Note that the first query is slow (and might even timeout!) because it first needs to start a container for the HComb, which typically takes 15-25s on Fargate. Subsequent queries are much faster because they reuse the HComb container. The HComb is stopped after a configurable duration of inactivity (typically 5 minutes).
