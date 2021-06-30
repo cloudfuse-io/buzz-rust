@@ -66,7 +66,7 @@ impl HBeeService {
         let provider = HBeeTable::new(Arc::new(table), Arc::clone(&self.range_cache));
         let source_ref: &str = &source;
         execution_context
-            .register_table(source_ref, Arc::new(provider));
+            .register_table(source_ref, Arc::new(provider))?;
         let physical_plan;
         {
             let df = execution_context.sql(&sql)?;

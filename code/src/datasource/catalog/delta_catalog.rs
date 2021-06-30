@@ -3,6 +3,7 @@ use std::sync::Arc;
 use super::{catalog_schema, SplittableTable};
 use crate::datasource::{HBeeTableDesc, S3ParquetTable};
 use crate::error::Result;
+use crate::internal_err;
 use crate::models::SizedFile;
 use arrow::array::*;
 use arrow::datatypes::*;
@@ -29,22 +30,21 @@ pub struct DeltaCatalogTable {
 
 impl DeltaCatalogTable {
     /// Create a catalog from a Delta S3 URI and a region.
-    pub async fn new(uri: &str, region: String) -> Self {
+    pub async fn try_new(uri: &str, region: String) -> Result<Self> {
         let region_enum = Region::from_str(&region).unwrap();
         let storage_backend: Box<dyn StorageBackend> =
             Box::new(S3StorageBackend::new_with(S3Client::new(region_enum), None));
-        let mut delta_table =
-            DeltaTable::new(&uri, storage_backend).expect("TODO Handle Delta failure");
-        delta_table.load().await.expect("TODO Handle Delta failure");
+        let mut delta_table = DeltaTable::new(&uri, storage_backend)?;
+        delta_table.load().await?;
         let uri_split = uri.split("/").collect::<Vec<_>>();
         let bucket = uri_split[2].to_owned();
         let root = uri_split[3..].join("/") + "/";
-        Self {
+        Ok(Self {
             delta_table,
             bucket,
             root,
             region,
-        }
+        })
     }
 
     /// Create a catalog from a local Delta path.
@@ -69,10 +69,7 @@ impl DeltaCatalogTable {
         let actions = self.delta_table.get_actions();
         let mut key_builder = StringBuilder::new(actions.len());
         let mut length_builder = UInt64Builder::new(actions.len());
-        let delta_metadata = self
-            .delta_table
-            .get_metadata()
-            .expect("TODO Handle Delta failure");
+        let delta_metadata = self.delta_table.get_metadata()?;
         let mut partition_builders = delta_metadata
             .partition_columns
             .iter()
@@ -80,12 +77,11 @@ impl DeltaCatalogTable {
             .collect::<Vec<_>>();
         for catalog_action in actions {
             key_builder.append_value(&(self.root.clone() + &catalog_action.path))?;
-            length_builder.append_value(
-                catalog_action
-                    .size
-                    .try_into()
-                    .expect("TODO Handle Delta failure"),
-            )?;
+            let catalog_file_size: u64 = catalog_action
+                .size
+                .try_into()
+                .map_err(|_| internal_err!("Unexpected negative length from delta"))?;
+            length_builder.append_value(catalog_file_size)?;
             for (i, part_col) in delta_metadata.partition_columns.iter().enumerate() {
                 // TODO check whether partition value might be some kind of wildcard
                 partition_builders[i]

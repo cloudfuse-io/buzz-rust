@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use crate::datasource::{
-    CatalogFile, CatalogTable, DeltaCatalogTable, StaticCatalogTable,
-};
+use crate::datasource::{CatalogFile, CatalogTable, StaticCatalogTable};
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
 /// shortened nyc taxi, hosted by cloudfuse

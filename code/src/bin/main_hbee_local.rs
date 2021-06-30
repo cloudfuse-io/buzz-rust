@@ -47,6 +47,7 @@ pub async fn start_hbee_server() -> Result<(), DynError> {
 }
 
 #[tokio::main]
+#[allow(dead_code)]
 async fn main() -> Result<(), DynError> {
     start_hbee_server().await
 }

@@ -34,6 +34,7 @@ pub async fn start_fuse(
 }
 
 #[tokio::main]
+#[allow(dead_code)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_fuse("hbee", "hcomb").await
 }

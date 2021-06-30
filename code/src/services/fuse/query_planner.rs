@@ -50,8 +50,10 @@ impl QueryPlanner {
         }
     }
 
-    pub fn add_catalog(&mut self, name: &str, table: CatalogTable) {
-        self.execution_context.register_table(name, Arc::new(table));
+    pub fn add_catalog(&mut self, name: &str, table: CatalogTable) -> Result<()> {
+        self.execution_context
+            .register_table(name, Arc::new(table))?;
+        Ok(())
     }
 
     pub async fn plan(
@@ -95,7 +97,7 @@ impl QueryPlanner {
         // plan the hcomb part of the query, to check if it is valid
         let hcomb_table = HCombTable::new_empty(hcomb_table_desc.clone());
         self.execution_context
-            .register_table(hcomb_expected_src, Arc::new(hcomb_table));
+            .register_table(hcomb_expected_src, Arc::new(hcomb_table))?;
         let hcomb_df = self.execution_context.sql(&hcomb_step.sql)?;
         let hcomb_plan = hcomb_df.to_logical_plan();
         let hcomb_actual_src = utils::find_table_name::<HCombTable>(&hcomb_plan)?;
@@ -185,10 +187,12 @@ mod tests {
     async fn test_simple_query() {
         let mut planner = QueryPlanner::new();
         let nb_split = 5;
-        planner.add_catalog(
-            "test",
-            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 0))),
-        );
+        planner
+            .add_catalog(
+                "test",
+                CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 0))),
+            )
+            .expect("Catalog added");
 
         let steps = vec![
             BuzzStep {
@@ -240,10 +244,12 @@ mod tests {
     async fn test_query_with_condition() {
         let mut planner = QueryPlanner::new();
         let nb_split = 5;
-        planner.add_catalog(
-            "test",
-            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 2))),
-        );
+        planner
+            .add_catalog(
+                "test",
+                CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 2))),
+            )
+            .expect("Catalog added");
 
         let steps = vec![
             BuzzStep {
@@ -273,10 +279,12 @@ mod tests {
     async fn test_query_with_empty_catalog() {
         let mut planner = QueryPlanner::new();
         let nb_split = 5;
-        planner.add_catalog(
-            "test",
-            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 1))),
-        );
+        planner
+            .add_catalog(
+                "test",
+                CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 1))),
+            )
+            .expect("Catalog added");
 
         let steps = vec![
             BuzzStep {
@@ -303,10 +311,12 @@ mod tests {
     async fn test_query_with_grouping() {
         let mut planner = QueryPlanner::new();
         let nb_split = 5;
-        planner.add_catalog(
-            "test",
-            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 1))),
-        );
+        planner
+            .add_catalog(
+                "test",
+                CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 1))),
+            )
+            .expect("Catalog added");
 
         let steps = vec![
             BuzzStep {
@@ -336,10 +346,12 @@ mod tests {
     async fn test_bad_hcomb_table() {
         let mut planner = QueryPlanner::new();
         let nb_split = 5;
-        planner.add_catalog(
-            "test",
-            CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 0))),
-        );
+        planner
+            .add_catalog(
+                "test",
+                CatalogTable::new(Box::new(MockSplittableTable::new(nb_split, 0))),
+            )
+            .expect("Catalog added");
 
         let steps = vec![
             BuzzStep {

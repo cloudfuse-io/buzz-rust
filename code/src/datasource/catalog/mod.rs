@@ -56,7 +56,7 @@ impl CatalogTable {
         let phys_plan;
         {
             let mut context = ExecutionContext::new();
-            context.register_table("catalog", self.source_table.file_table().await);
+            context.register_table("catalog", self.source_table.file_table().await)?;
             let sql_pattern = "SELECT * FROM catalog";
             let sql_statement = match partition_filters {
                 Some(sql_where) => format!("{} WHERE {}", sql_pattern, sql_where),

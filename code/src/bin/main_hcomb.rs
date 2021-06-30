@@ -10,6 +10,7 @@ pub async fn start_hcomb_server() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::main]
+#[allow(dead_code)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_hcomb_server().await
 }

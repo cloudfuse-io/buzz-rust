@@ -2,7 +2,6 @@ use crate::error::Result;
 use crate::not_impl_err;
 use datafusion::datasource::TableProvider;
 use datafusion::logical_plan::LogicalPlan;
-use std::sync::Arc;
 
 /// Search a TableProvider of the given type in the plan.
 /// Only works with linear plans (only one datasource).
@@ -88,7 +87,7 @@ mod tests {
     fn search_table_sql_plan() -> Result<()> {
         let mut ctx = ExecutionContext::new();
         let empty_table = Arc::new(EmptyTable::new(Arc::new(Schema::empty())));
-        ctx.register_table("test_tbl", empty_table);
+        ctx.register_table("test_tbl", empty_table)?;
         let df = ctx.sql("SELECT * FROM test_tbl")?;
         let log_plan = df.to_logical_plan();
         let found_name = find_table_name::<EmptyTable>(&log_plan).unwrap();

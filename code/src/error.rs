@@ -6,6 +6,7 @@ use std::result;
 use arrow::error::ArrowError;
 use arrow_parquet::errors::ParquetError;
 use datafusion::error::DataFusionError;
+use deltalake::DeltaTableError;
 
 /// Result type for operations that could result in an [BuzzError]
 pub type Result<T> = result::Result<T, BuzzError>;
@@ -15,6 +16,8 @@ pub type Result<T> = result::Result<T, BuzzError>;
 pub enum BuzzError {
     /// Error returned by arrow.
     ArrowError(ArrowError),
+    /// Error returned by DeltaLake.
+    DeltaTableError(DeltaTableError),
     /// Wraps an error from the Parquet crate
     ParquetError(ParquetError),
     /// Wraps an error from the DataFusion crate
@@ -64,6 +67,15 @@ macro_rules! not_impl_err {
     }}
 }
 
+/// Creates a BadRequest error from a formatted string
+#[macro_export]
+macro_rules! bad_req_err {
+    ($($arg:tt)*) => {{
+        let reason = format!($($arg)*);
+        crate::error::BuzzError::BadRequest(reason)
+    }}
+}
+
 /// Checks the predicate, if false return the formatted string
 #[macro_export]
 macro_rules! ensure {
@@ -88,6 +100,7 @@ impl BuzzError {
     pub fn reason(&self) -> String {
         match *self {
             BuzzError::ArrowError(ref desc) => format!("{}", desc),
+            BuzzError::DeltaTableError(ref desc) => format!("{}", desc),
             BuzzError::ParquetError(ref desc) => format!("{}", desc),
             BuzzError::DataFusionError(ref desc) => format!("{}", desc),
             BuzzError::BadRequest(ref desc) => format!("{}", desc),
@@ -127,10 +140,17 @@ impl From<DataFusionError> for BuzzError {
     }
 }
 
+impl From<DeltaTableError> for BuzzError {
+    fn from(e: DeltaTableError) -> Self {
+        BuzzError::DeltaTableError(e)
+    }
+}
+
 impl Display for BuzzError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match *self {
             BuzzError::ArrowError(ref desc) => write!(f, "Arrow error: {}", desc),
+            BuzzError::DeltaTableError(ref desc) => write!(f, "Delta error: {}", desc),
             BuzzError::ParquetError(ref desc) => {
                 write!(f, "Parquet error: {}", desc)
             }

@@ -10,12 +10,12 @@ const QUERY_ID: &str = "test_query";
 
 async fn new_plan(event: Value) -> Result<HBeePlan, Box<dyn Error>> {
     let mut qp = QueryPlanner::new();
-    qp.add_catalog("nyc_taxi_ursa", example_catalog::nyc_taxi_ursa());
-    qp.add_catalog("nyc_taxi_cloudfuse", example_catalog::nyc_taxi_cloudfuse());
+    qp.add_catalog("nyc_taxi_ursa", example_catalog::nyc_taxi_ursa())?;
+    qp.add_catalog("nyc_taxi_cloudfuse", example_catalog::nyc_taxi_cloudfuse())?;
     qp.add_catalog(
         "nyc_taxi_cloudfuse_sample",
         example_catalog::nyc_taxi_cloudfuse_sample(),
-    );
+    )?;
     let steps = serde_json::from_value(event)?;
     qp.plan(QUERY_ID.to_owned(), steps, 1)
         .await
