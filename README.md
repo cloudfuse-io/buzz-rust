@@ -4,7 +4,8 @@
 ![Master](https://github.com/cloudfuse-io/buzz-rust/actions/workflows/tests.yml/badge.svg)
 [![codecov](https://codecov.io/gh/cloudfuse-io/buzz-rust/branch/master/graph/badge.svg?token=I5IDAW6VS6)](https://codecov.io/gh/cloudfuse-io/buzz-rust)
 
-:warning: This projected is a POC and is not actively maintained. It's dependencies are outdated, which might introduce security vulnerabilities.
+> **Warning** 
+> This project is a POC and is not actively maintained. It's dependencies are outdated, which might introduce security vulnerabilities.
 
 Buzz is best defined by the following key concepts:
 - **Interactive analytics query engine**, it quickly computes statistics or performs searches on huge amounts of data.
